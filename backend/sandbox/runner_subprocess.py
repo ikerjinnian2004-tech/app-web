@@ -6,9 +6,9 @@ import tempfile
 from textwrap import dedent
 
 from backend.config import get_settings
-from backend.sandbox.policy import check_static
+from backend.sandbox.policy import validar_fragmento
 
-settings = get_settings()
+configuracion = get_settings()
 
 try:
     import resource
@@ -16,25 +16,22 @@ except ImportError:  # pragma: no cover - Windows no expone este módulo.
     resource = None
 
 
-def _truncate(text: str, max_output: int) -> str:
-    """Recorta stdout o stderr al tamaño máximo permitido."""
-    return text[:max_output]
+def _recortar(texto: str, salida_maxima: int) -> str:
+    return texto[:salida_maxima]
 
 
-def _preexec_limits() -> None:
-    """Aplica límites modestos de CPU y memoria en sistemas Unix."""
+def _aplicar_limites_preexec() -> None:
     if resource is None:
         return
 
-    mem_bytes = settings.sandbox_mem_limit_mb * 1024 * 1024
-    cpu_seconds = max(1, int(settings.sandbox_timeout_seconds))
-    resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + 1))
+    memoria_bytes = configuracion.sandbox_mem_limit_mb * 1024 * 1024
+    segundos_cpu = max(1, int(configuracion.sandbox_timeout_seconds))
+    resource.setrlimit(resource.RLIMIT_AS, (memoria_bytes, memoria_bytes))
+    resource.setrlimit(resource.RLIMIT_CPU, (segundos_cpu, segundos_cpu + 1))
 
 
-def _wrap_code(codigo: str) -> str:
-    """Inyecta un preámbulo mínimo para bloquear open() en desarrollo."""
-    prelude = dedent(
+def _envolver_codigo(codigo: str) -> str:
+    preambulo = dedent(
         """
         import builtins as __safe_builtins__
 
@@ -44,14 +41,14 @@ def _wrap_code(codigo: str) -> str:
         __safe_builtins__.open = __blocked_open__
         """
     )
-    return f"{prelude}\n{codigo}"
+    return f"{preambulo}\n{codigo}"
 
 
-def _run_code(
-    codigo: str, timeout: int, max_output: int, validate_static: bool
+def _ejecutar_codigo(
+    codigo: str, timeout: int, salida_maxima: int, validar_estaticamente: bool
 ) -> dict[str, object]:
-    if validate_static:
-        es_seguro, motivo = check_static(codigo)
+    if validar_estaticamente:
+        es_seguro, motivo = validar_fragmento(codigo)
         if not es_seguro:
             return {
                 "stdout": "",
@@ -73,41 +70,45 @@ def _run_code(
     # Lanzamos Python en modo aislado (-I) para reducir herencia del entorno.
     # Aun así, seguimos hablando de un runner de desarrollo, no de producción.
     entorno_minimo = {"PYTHONIOENCODING": "utf-8"}
-    comando = [sys.executable, "-I", "-c", _wrap_code(codigo)]
+    comando = [sys.executable, "-I", "-c", _envolver_codigo(codigo)]
 
     try:
-        with tempfile.TemporaryDirectory(prefix="sandbox-dev-") as temp_dir:
-            result = subprocess.run(
+        with tempfile.TemporaryDirectory(prefix="sandbox-dev-") as directorio_temporal:
+            resultado = subprocess.run(
                 comando,
                 capture_output=True,
                 timeout=timeout,
                 text=True,
                 check=False,
-                cwd=temp_dir,
+                cwd=directorio_temporal,
                 env=entorno_minimo,
-                preexec_fn=_preexec_limits if resource is not None else None,
+                preexec_fn=_aplicar_limites_preexec if resource is not None else None,
             )
     except subprocess.TimeoutExpired as exc:
         return {
-            "stdout": _truncate(exc.stdout or "", max_output),
-            "stderr": _truncate(exc.stderr or "", max_output),
+            "stdout": _recortar(exc.stdout or "", salida_maxima),
+            "stderr": _recortar(exc.stderr or "", salida_maxima),
             "returncode": -9,
             "timed_out": True,
         }
 
     return {
-        "stdout": _truncate(result.stdout, max_output),
-        "stderr": _truncate(result.stderr, max_output),
-        "returncode": int(result.returncode),
+        "stdout": _recortar(resultado.stdout, salida_maxima),
+        "stderr": _recortar(resultado.stderr, salida_maxima),
+        "returncode": int(resultado.returncode),
         "timed_out": False,
     }
 
 
-def run_code(codigo: str, timeout: int, max_output: int) -> dict[str, object]:
-    """Ejecuta código de alumno en un subproceso local de desarrollo."""
-    return _run_code(codigo, timeout, max_output, validate_static=True)
+def ejecutar_codigo(codigo: str, timeout: int, max_output: int) -> dict[str, object]:
+    return _ejecutar_codigo(codigo, timeout, max_output, validar_estaticamente=True)
 
 
-def run_internal_code(codigo: str, timeout: int, max_output: int) -> dict[str, object]:
-    """Ejecuta el script generado por el corrector en un subproceso local."""
-    return _run_code(codigo, timeout, max_output, validate_static=False)
+def ejecutar_codigo_interno(
+    codigo: str, timeout: int, max_output: int
+) -> dict[str, object]:
+    return _ejecutar_codigo(codigo, timeout, max_output, validar_estaticamente=False)
+
+
+run_code = ejecutar_codigo
+run_internal_code = ejecutar_codigo_interno

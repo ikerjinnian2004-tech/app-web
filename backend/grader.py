@@ -6,9 +6,13 @@ from typing import Callable
 
 from backend.config import get_settings
 from backend.models import CasoPrueba, Pregunta, RespuestaAlumno
-from backend.sandbox.policy import check_static, check_static_program, classify_error
-from backend.sandbox.runner_docker import run_internal_code_docker
-from backend.sandbox.runner_subprocess import run_internal_code
+from backend.sandbox.policy import (
+    clasificar_error,
+    validar_fragmento,
+    validar_programa,
+)
+from backend.sandbox.runner_docker import ejecutar_codigo_interno_docker
+from backend.sandbox.runner_subprocess import ejecutar_codigo_interno
 from backend.template_engine import ensamblar_codigo
 
 settings = get_settings()
@@ -40,7 +44,9 @@ class ResultadoPregunta:
 
 def get_runner() -> SandboxRunner:
     return (
-        run_internal_code_docker if settings.sandbox_use_docker else run_internal_code
+        ejecutar_codigo_interno_docker
+        if settings.sandbox_use_docker
+        else ejecutar_codigo_interno
     )
 
 
@@ -134,9 +140,9 @@ def corregir_codigo(
         return resultado_error(pregunta, casos, "NO_TESTS")
 
     if pregunta.tipo == "rellenar_huecos":
-        es_seguro, motivo = check_static(contenido)
+        es_seguro, motivo = validar_fragmento(contenido)
     else:
-        es_seguro, motivo = check_static_program(contenido)
+        es_seguro, motivo = validar_programa(contenido)
     if not es_seguro:
         error_type = (
             "SYNTAX_ERROR" if motivo.startswith("SyntaxError") else "SECURITY_BLOCKED"
@@ -167,7 +173,7 @@ def corregir_codigo(
     stderr_total = str(ejecucion.get("stderr", ""))
     resultados_parseados = parse_batch_results(stdout_total)
     if resultados_parseados is None:
-        error_type = classify_error(int(ejecucion.get("returncode", 1)), stderr_total)
+        error_type = clasificar_error(int(ejecucion.get("returncode", 1)), stderr_total)
         return resultado_error(pregunta, casos, error_type)
 
     peso_total = sum(caso.peso for caso in casos) or 1.0
@@ -179,7 +185,7 @@ def corregir_codigo(
         stdout = str(resultado.get("stdout", ""))
         stderr = str(resultado.get("stderr", ""))
         returncode = int(resultado.get("returncode", 1))
-        error_type = classify_error(returncode, stderr)
+        error_type = clasificar_error(returncode, stderr)
 
         if caso.salida_esperada == "":
             passed = returncode == 0

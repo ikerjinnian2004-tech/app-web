@@ -1,7 +1,7 @@
 import ast
 from textwrap import dedent, indent
 
-FORBIDDEN_CALLS: frozenset[str] = frozenset(
+LLAMADAS_PROHIBIDAS: frozenset[str] = frozenset(
     {
         "__import__",
         "compile",
@@ -15,7 +15,7 @@ FORBIDDEN_CALLS: frozenset[str] = frozenset(
     }
 )
 
-FORBIDDEN_ATTRS: frozenset[str] = frozenset(
+ATRIBUTOS_PROHIBIDOS: frozenset[str] = frozenset(
     {
         "__bases__",
         "__builtins__",
@@ -28,46 +28,47 @@ FORBIDDEN_ATTRS: frozenset[str] = frozenset(
     }
 )
 
-MAX_CODE_LENGTH = 50_000
+LONGITUD_MAXIMA_CODIGO = 50_000
 
 
-class SafetyVisitor(ast.NodeVisitor):
+class VisitanteSeguridad(ast.NodeVisitor):
     def __init__(self) -> None:
         self.reason = ""
 
-    def _block(self, reason: str) -> None:
+    def _bloquear(self, motivo: str) -> None:
         if not self.reason:
-            self.reason = reason
+            self.reason = motivo
 
     def visit_Import(self, node: ast.Import) -> None:
-        self._block("No se permiten importaciones en la respuesta.")
+        self._bloquear("No se permiten importaciones en la respuesta.")
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        self._block("No se permiten importaciones en la respuesta.")
+        self._bloquear("No se permiten importaciones en la respuesta.")
 
     def visit_Call(self, node: ast.Call) -> None:
-        if isinstance(node.func, ast.Name) and node.func.id in FORBIDDEN_CALLS:
-            self._block(f"Llamada no permitida: {node.func.id}.")
+        if isinstance(node.func, ast.Name) and node.func.id in LLAMADAS_PROHIBIDAS:
+            self._bloquear(f"Llamada no permitida: {node.func.id}.")
         elif (
             isinstance(node.func, ast.Name)
             and node.func.id in {"getattr", "setattr", "delattr"}
             and len(node.args) > 1
             and isinstance(node.args[1], ast.Constant)
-            and node.args[1].value in FORBIDDEN_ATTRS
+            and node.args[1].value in ATRIBUTOS_PROHIBIDOS
         ):
-            self._block("Acceso de introspección no permitido.")
+            self._bloquear("Acceso de introspección no permitido.")
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
-        if node.attr in FORBIDDEN_ATTRS:
-            self._block("Acceso de introspección no permitido.")
+        if node.attr in ATRIBUTOS_PROHIBIDOS:
+            self._bloquear("Acceso de introspección no permitido.")
         self.generic_visit(node)
 
 
-def check_static(codigo: str) -> tuple[bool, str]:
-    """Valida el fragmento escrito por el alumno antes de ejecutarlo."""
-    if len(codigo) > MAX_CODE_LENGTH:
-        return False, f"Código demasiado largo: máximo {MAX_CODE_LENGTH} caracteres."
+def validar_fragmento(codigo: str) -> tuple[bool, str]:
+    if len(codigo) > LONGITUD_MAXIMA_CODIGO:
+        return False, (
+            f"Código demasiado largo: máximo {LONGITUD_MAXIMA_CODIGO} caracteres."
+        )
 
     try:
         fragmento = indent(dedent(f"    {codigo}") or "pass", "    ")
@@ -75,34 +76,44 @@ def check_static(codigo: str) -> tuple[bool, str]:
     except SyntaxError as exc:
         return False, f"SyntaxError: {exc.msg}"
 
-    visitor = SafetyVisitor()
-    visitor.visit(tree)
-    return (False, visitor.reason) if visitor.reason else (True, "")
+    visitante = VisitanteSeguridad()
+    visitante.visit(tree)
+    return (False, visitante.reason) if visitante.reason else (True, "")
 
 
-def check_static_program(codigo: str) -> tuple[bool, str]:
-    """Valida un programa completo escrito por el alumno."""
-    if len(codigo) > MAX_CODE_LENGTH:
-        return False, f"Código demasiado largo: máximo {MAX_CODE_LENGTH} caracteres."
+def validar_programa(codigo: str) -> tuple[bool, str]:
+    if len(codigo) > LONGITUD_MAXIMA_CODIGO:
+        return False, (
+            f"Código demasiado largo: máximo {LONGITUD_MAXIMA_CODIGO} caracteres."
+        )
 
     try:
         tree = ast.parse(codigo, mode="exec")
     except SyntaxError as exc:
         return False, f"SyntaxError: {exc.msg}"
 
-    visitor = SafetyVisitor()
-    visitor.visit(tree)
-    return (False, visitor.reason) if visitor.reason else (True, "")
+    visitante = VisitanteSeguridad()
+    visitante.visit(tree)
+    return (False, visitante.reason) if visitante.reason else (True, "")
 
 
-def classify_error(returncode: int, stderr: str) -> str:
-    """Convierte el resultado del runner en categorías públicas y estables."""
-    if returncode == 0:
+def clasificar_error(codigo_retorno: int, stderr: str) -> str:
+    if codigo_retorno == 0:
         return "OK"
-    if returncode in (-9, 137):
+    if codigo_retorno in (-9, 137):
         return "TIMEOUT"
     if "SyntaxError" in stderr:
         return "SYNTAX_ERROR"
     if "no permitido" in stderr or "no permitida" in stderr or "bloqueado" in stderr:
         return "SECURITY_BLOCKED"
     return "RUNTIME_ERROR"
+
+
+# Compatibilidad para consumidores de la API anterior del sandbox.
+FORBIDDEN_CALLS = LLAMADAS_PROHIBIDAS
+FORBIDDEN_ATTRS = ATRIBUTOS_PROHIBIDOS
+MAX_CODE_LENGTH = LONGITUD_MAXIMA_CODIGO
+SafetyVisitor = VisitanteSeguridad
+check_static = validar_fragmento
+check_static_program = validar_programa
+classify_error = clasificar_error
