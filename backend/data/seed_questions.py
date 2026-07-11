@@ -32,7 +32,7 @@ def main() -> int:
     from backend.database import SessionLocal, create_tables
     from backend.datos_iniciales import cargar_datos_iniciales, normalizar_correo
     from backend.models import CasoPrueba, Examen, Pregunta
-    from backend.template_engine import validate_template
+    from backend.template_engine import validar_plantilla
 
     create_tables()
     datos = cargar_datos_iniciales()
@@ -70,7 +70,7 @@ def main() -> int:
         for pregunta_data in examen_data["preguntas"]:
             plantilla = pregunta_data.get("codigo_plantilla")
             if pregunta_data["tipo"] == "rellenar_huecos" and plantilla:
-                validate_template(plantilla)
+                validar_plantilla(plantilla)
 
             pregunta = Pregunta(
                 examen_id=examen.id,

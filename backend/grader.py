@@ -9,7 +9,7 @@ from backend.models import CasoPrueba, Pregunta, RespuestaAlumno
 from backend.sandbox.policy import check_static, check_static_program, classify_error
 from backend.sandbox.runner_docker import run_internal_code_docker
 from backend.sandbox.runner_subprocess import run_internal_code
-from backend.template_engine import assemble_code
+from backend.template_engine import ensamblar_codigo
 
 settings = get_settings()
 SandboxRunner = Callable[[str, int, int], dict[str, object]]
@@ -145,7 +145,7 @@ def corregir_codigo(
 
     if pregunta.tipo == "rellenar_huecos":
         try:
-            codigo_base = assemble_code(pregunta.codigo_plantilla or "", contenido)
+            codigo_base = ensamblar_codigo(pregunta.codigo_plantilla or "", contenido)
         except ValueError:
             return resultado_error(pregunta, casos, "RUNTIME_ERROR")
     else:

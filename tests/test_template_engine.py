@@ -1,29 +1,29 @@
 import pytest
 
 from backend.template_engine import (
-    MAX_ANSWER_LENGTH,
-    assemble_code,
-    count_blanks,
-    parse_template,
-    validate_template,
+    LONGITUD_MAXIMA_RESPUESTA,
+    contar_huecos,
+    dividir_plantilla,
+    ensamblar_codigo,
+    validar_plantilla,
 )
 
 
-def test_parse_template_devuelve_fragmentos_fijos() -> None:
-    assert parse_template("a = [BLANK]") == ["a = ", ""]
+def test_dividir_plantilla_devuelve_fragmentos_fijos() -> None:
+    assert dividir_plantilla("a = [BLANK]") == ["a = ", ""]
 
 
-def test_count_blanks_cuenta_bien() -> None:
-    assert count_blanks("a[BLANK]b[BLANK]c") == 2
+def test_contar_huecos_cuenta_bien() -> None:
+    assert contar_huecos("a[BLANK]b[BLANK]c") == 2
 
 
-def test_assemble_code_sustituye_el_unico_blank() -> None:
-    assert assemble_code("a = [BLANK]", "5") == "a = 5"
+def test_ensamblar_codigo_sustituye_el_unico_hueco() -> None:
+    assert ensamblar_codigo("a = [BLANK]", "5") == "a = 5"
 
 
-def test_assemble_code_respeta_indentacion() -> None:
+def test_ensamblar_codigo_respeta_indentacion() -> None:
     assert (
-        assemble_code("def f():\n    return [BLANK]", "x + 1")
+        ensamblar_codigo("def f():\n    return [BLANK]", "x + 1")
         == "def f():\n    return x + 1"
     )
 
@@ -31,9 +31,11 @@ def test_assemble_code_respeta_indentacion() -> None:
 @pytest.mark.parametrize("plantilla", ["sin huecos", "x = [BLANK] + [BLANK]"])
 def test_plantilla_requiere_un_solo_hueco(plantilla: str) -> None:
     with pytest.raises(ValueError, match="exactamente un marcador"):
-        validate_template(plantilla)
+        validar_plantilla(plantilla)
 
 
 def test_respuesta_demasiado_larga_se_rechaza() -> None:
     with pytest.raises(ValueError, match="supera"):
-        assemble_code("a = [BLANK]", "a" * (MAX_ANSWER_LENGTH + 1))
+        ensamblar_codigo(
+            "a = [BLANK]", "a" * (LONGITUD_MAXIMA_RESPUESTA + 1)
+        )
