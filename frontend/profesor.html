@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Panel docente de entregas y evidencias">
+  <title>Profesor | Evaluador Python</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="cabecera-examen">
+    <div>
+      <p class="etiqueta-centro">Profesor</p>
+      <h1>Panel docente</h1>
+    </div>
+    <button id="descargar-csv" class="boton-secundario" type="button">Descargar CSV</button>
+  </header>
+
+  <main class="contenedor-ancho">
+    <p id="mensaje-profesor" class="mensaje" aria-live="polite"></p>
+    <section id="entregas" class="tabla-docente"></section>
+  </main>
+
+  <script type="module" src="./js/profesor.js"></script>
+</body>
+</html>

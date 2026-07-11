@@ -1,0 +1,97 @@
+{
+  "usuarios": {
+    "alumnos": [
+      {
+        "nombre": "Ana",
+        "apellidos": "Garcia Lopez",
+        "correo": "ana.garcia@alu.uclm.es"
+      },
+      {
+        "nombre": "Bruno",
+        "apellidos": "Martin Ruiz",
+        "correo": "bruno.martin@alu.uclm.es"
+      }
+    ],
+    "profesores": [
+      {
+        "nombre": "David",
+        "apellidos": "Munoz Valero",
+        "correo": "david.munoz@uclm.es"
+      },
+      {
+        "nombre": "Juan",
+        "apellidos": "Moreno Garcia",
+        "correo": "juan.moreno@uclm.es"
+      }
+    ]
+  },
+  "examen": {
+    "titulo": "Prueba inicial de Python",
+    "duracion_minutos": 90,
+    "preguntas": [
+      {
+        "tipo": "rellenar_huecos",
+        "titulo": "suma(a, b)",
+        "orden": 1,
+        "peso": 1.0,
+        "enunciado": "Completa la expresion de retorno para sumar dos valores.",
+        "codigo_plantilla": "def suma(a, b):\n    return [BLANK]",
+        "codigo_solucion": "a + b",
+        "casos_prueba": [
+          {
+            "descripcion": "positivos",
+            "codigo_test": "assert suma(2, 3) == 5",
+            "salida_esperada": ""
+          },
+          {
+            "descripcion": "negativos",
+            "codigo_test": "assert suma(-2, -3) == -5",
+            "salida_esperada": ""
+          }
+        ]
+      },
+      {
+        "tipo": "corregir_codigo",
+        "titulo": "maximo(a, b)",
+        "orden": 2,
+        "peso": 1.0,
+        "enunciado": "Corrige la funcion para que devuelva el mayor de dos numeros.",
+        "codigo_plantilla": "def maximo(a, b):\n    if a < b:\n        return a\n    return b",
+        "codigo_solucion": "def maximo(a, b):\n    if a >= b:\n        return a\n    return b",
+        "casos_prueba": [
+          {
+            "descripcion": "a mayor",
+            "codigo_test": "assert maximo(7, 2) == 7",
+            "salida_esperada": ""
+          },
+          {
+            "descripcion": "b mayor",
+            "codigo_test": "assert maximo(3, 8) == 8",
+            "salida_esperada": ""
+          },
+          {
+            "descripcion": "iguales",
+            "codigo_test": "assert maximo(4, 4) == 4",
+            "salida_esperada": ""
+          }
+        ]
+      },
+      {
+        "tipo": "tipo_test",
+        "titulo": "Estructura mutable",
+        "orden": 3,
+        "peso": 1.0,
+        "enunciado": "Selecciona la estructura de Python que permite modificar elementos por posicion.",
+        "opciones": ["tuple", "list", "str", "range"],
+        "respuesta_correcta": "list"
+      },
+      {
+        "tipo": "respuesta_corta",
+        "titulo": "Traza de bucle",
+        "orden": 4,
+        "peso": 0.5,
+        "enunciado": "Explica brevemente que imprime: total = 0; for n in [1, 2, 3]: total += n; print(total)."
+      }
+    ]
+  }
+}

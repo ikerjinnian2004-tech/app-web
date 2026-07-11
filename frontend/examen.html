@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Examen de Python">
+  <title>Examen | Evaluador Python</title>
+  <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+  <header class="cabecera-examen">
+    <div>
+      <p class="etiqueta-centro">Alumno</p>
+      <h1 id="titulo-examen">Examen</h1>
+    </div>
+    <div class="temporizador" aria-label="Tiempo restante">
+      <strong id="tiempo-restante">--:--</strong>
+      <span id="estado-examen">Preparando</span>
+    </div>
+  </header>
+
+  <main class="contenedor-ancho">
+    <p id="aviso-auditoria" class="aviso hidden" role="status" aria-live="polite"></p>
+    <form id="formulario-examen" class="lista-preguntas">
+      <div id="preguntas"></div>
+      <footer class="barra-envio">
+        <span id="contador-respuestas">0 respuestas</span>
+        <button class="boton-principal" type="submit">Enviar prueba</button>
+      </footer>
+    </form>
+  </main>
+
+  <script type="module" src="./js/examen.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+FROM python:3.11-slim
+
+RUN useradd -r -s /bin/false sandbox_user
+USER sandbox_user
+WORKDIR /tmp
