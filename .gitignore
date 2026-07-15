@@ -5,6 +5,10 @@ env/
 .env
 .env.local
 .env.production
+.agents/
+.codex/
+.black-cache-final/
+test_runtime.db
 
 # Python
 __pycache__/

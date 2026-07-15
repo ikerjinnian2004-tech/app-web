@@ -1,33 +1,32 @@
-MARCADOR_HUECO = "[BLANK]"
-LONGITUD_MAXIMA_RESPUESTA = 10_000
+BLANK_MARKER = "[BLANK]"
+MAX_ANSWER_LENGTH = 10_000
 
 
-def dividir_plantilla(codigo_plantilla: str) -> list[str]:
-    return codigo_plantilla.split(MARCADOR_HUECO)
+def split_template(template_code: str) -> list[str]:
+    return template_code.split(BLANK_MARKER)
 
 
-def contar_huecos(codigo_plantilla: str) -> int:
-    return codigo_plantilla.count(MARCADOR_HUECO)
+def count_blanks(template_code: str) -> int:
+    return template_code.count(BLANK_MARKER)
 
 
-def validar_plantilla(codigo_plantilla: str) -> None:
-    if contar_huecos(codigo_plantilla) != 1:
+def validate_template(template_code: str) -> None:
+    if count_blanks(template_code) != 1:
         raise ValueError("La plantilla debe contener exactamente un marcador [BLANK].")
 
 
-def ensamblar_codigo(codigo_plantilla: str, respuesta_alumno: str) -> str:
-    validar_plantilla(codigo_plantilla)
-    if len(respuesta_alumno) > LONGITUD_MAXIMA_RESPUESTA:
-        raise ValueError(
-            f"La respuesta supera {LONGITUD_MAXIMA_RESPUESTA} caracteres."
-        )
-    return codigo_plantilla.replace(MARCADOR_HUECO, respuesta_alumno, 1)
+def assemble_code(template_code: str, student_answer: str) -> str:
+    validate_template(template_code)
+    if len(student_answer) > MAX_ANSWER_LENGTH:
+        raise ValueError(f"La respuesta supera {MAX_ANSWER_LENGTH} caracteres.")
+    return template_code.replace(BLANK_MARKER, student_answer, 1)
 
 
-# Compatibilidad para consumidores que importen la API anterior del módulo.
-BLANK_TOKEN = MARCADOR_HUECO
-MAX_ANSWER_LENGTH = LONGITUD_MAXIMA_RESPUESTA
-parse_template = dividir_plantilla
-count_blanks = contar_huecos
-validate_template = validar_plantilla
-assemble_code = ensamblar_codigo
+MARCADOR_HUECO = BLANK_MARKER
+LONGITUD_MAXIMA_RESPUESTA = MAX_ANSWER_LENGTH
+dividir_plantilla = split_template
+contar_huecos = count_blanks
+validar_plantilla = validate_template
+ensamblar_codigo = assemble_code
+BLANK_TOKEN = BLANK_MARKER
+parse_template = split_template

@@ -13,7 +13,7 @@ from backend.sandbox.policy import (
 )
 from backend.sandbox.runner_docker import ejecutar_codigo_interno_docker
 from backend.sandbox.runner_subprocess import ejecutar_codigo_interno
-from backend.template_engine import ensamblar_codigo
+from backend.template_engine import assemble_code
 
 settings = get_settings()
 SandboxRunner = Callable[[str, int, int], dict[str, object]]
@@ -50,19 +50,19 @@ def get_runner() -> SandboxRunner:
     )
 
 
-def validate_compilable_code(codigo: str) -> tuple[bool, str]:
+def is_compilable_code(code: str) -> tuple[bool, str]:
     try:
-        compile(codigo, "<codigo-alumno>", "exec")
+        compile(code, "<codigo-alumno>", "exec")
     except SyntaxError as exc:
-        linea = f" (línea {exc.lineno})" if exc.lineno is not None else ""
-        return False, f"SyntaxError{linea}: {exc.msg}"
+        line = f" (línea {exc.lineno})" if exc.lineno is not None else ""
+        return False, f"SyntaxError{line}: {exc.msg}"
     return True, ""
 
 
-def build_batch_runner_code(codigo_base: str, casos: list[CasoPrueba]) -> str:
-    tests_literal = repr([caso.codigo_test for caso in casos])
+def build_batch_execution_code(base_code: str, test_cases: list[CasoPrueba]) -> str:
+    tests_literal = repr([test_case.codigo_test for test_case in test_cases])
     return f"""
-__tfg_student_code__ = {codigo_base!r}
+__tfg_student_code__ = {base_code!r}
 __tfg_tests__ = {tests_literal}
 __tfg_results__ = []
 
@@ -101,7 +101,7 @@ print({BATCH_RESULTS_MARKER!r} + repr(__tfg_results__))
 """.strip()
 
 
-def parse_batch_results(stdout: str) -> list[dict[str, object]] | None:
+def parse_batch_results_from_stdout(stdout: str) -> list[dict[str, object]] | None:
     marker_position = stdout.rfind(BATCH_RESULTS_MARKER)
     if marker_position == -1:
         return None
@@ -115,135 +115,138 @@ def parse_batch_results(stdout: str) -> list[dict[str, object]] | None:
     return parsed if isinstance(parsed, list) else None
 
 
-def resultado_error(
-    pregunta: Pregunta,
-    casos: list[CasoPrueba],
+def build_error_result(
+    question: Pregunta,
+    test_cases: list[CasoPrueba],
     error_type: str,
 ) -> ResultadoPregunta:
     return ResultadoPregunta(
-        pregunta_id=pregunta.id,
-        tipo=pregunta.tipo,
+        pregunta_id=question.id,
+        tipo=question.tipo,
         estado="corregida",
         nota=0.0,
         tests_ok=0,
-        tests_total=len(casos),
+        tests_total=len(test_cases),
         error_type=error_type,
     )
 
 
-def corregir_codigo(
-    pregunta: Pregunta,
-    contenido: str,
-    casos: list[CasoPrueba],
+def grade_code_answer(
+    question: Pregunta,
+    answer: str,
+    test_cases: list[CasoPrueba],
 ) -> ResultadoPregunta:
-    if not casos:
-        return resultado_error(pregunta, casos, "NO_TESTS")
+    if not test_cases:
+        return build_error_result(question, test_cases, "NO_TESTS")
 
-    if pregunta.tipo == "rellenar_huecos":
-        es_seguro, motivo = validar_fragmento(contenido)
+    if question.tipo == "rellenar_huecos":
+        is_safe, reason = validar_fragmento(answer)
     else:
-        es_seguro, motivo = validar_programa(contenido)
-    if not es_seguro:
+        is_safe, reason = validar_programa(answer)
+    if not is_safe:
         error_type = (
-            "SYNTAX_ERROR" if motivo.startswith("SyntaxError") else "SECURITY_BLOCKED"
+            "SYNTAX_ERROR" if reason.startswith("SyntaxError") else "SECURITY_BLOCKED"
         )
-        return resultado_error(pregunta, casos, error_type)
+        return build_error_result(question, test_cases, error_type)
 
-    if pregunta.tipo == "rellenar_huecos":
+    if question.tipo == "rellenar_huecos":
         try:
-            codigo_base = ensamblar_codigo(pregunta.codigo_plantilla or "", contenido)
+            base_code = assemble_code(question.codigo_plantilla or "", answer)
         except ValueError:
-            return resultado_error(pregunta, casos, "RUNTIME_ERROR")
+            return build_error_result(question, test_cases, "RUNTIME_ERROR")
     else:
-        codigo_base = contenido
+        base_code = answer
 
-    compila, motivo_compilacion = validate_compilable_code(codigo_base)
-    if not compila:
-        return resultado_error(pregunta, casos, "SYNTAX_ERROR")
+    is_compilable, _ = is_compilable_code(base_code)
+    if not is_compilable:
+        return build_error_result(question, test_cases, "SYNTAX_ERROR")
 
-    ejecucion = get_runner()(
-        build_batch_runner_code(codigo_base, casos),
+    execution = get_runner()(
+        build_batch_execution_code(base_code, test_cases),
         timeout=settings.sandbox_timeout_seconds,
         max_output=settings.sandbox_max_output_chars,
     )
-    if bool(ejecucion.get("timed_out")):
-        return resultado_error(pregunta, casos, "TIMEOUT")
+    if bool(execution.get("timed_out")):
+        return build_error_result(question, test_cases, "TIMEOUT")
 
-    stdout_total = str(ejecucion.get("stdout", ""))
-    stderr_total = str(ejecucion.get("stderr", ""))
-    resultados_parseados = parse_batch_results(stdout_total)
-    if resultados_parseados is None:
-        error_type = clasificar_error(int(ejecucion.get("returncode", 1)), stderr_total)
-        return resultado_error(pregunta, casos, error_type)
+    stdout = str(execution.get("stdout", ""))
+    stderr = str(execution.get("stderr", ""))
+    parsed_results = parse_batch_results_from_stdout(stdout)
+    if parsed_results is None:
+        error_type = clasificar_error(int(execution.get("returncode", 1)), stderr)
+        return build_error_result(question, test_cases, error_type)
 
-    peso_total = sum(caso.peso for caso in casos) or 1.0
-    peso_ok = 0.0
-    primer_error: str | None = None
+    total_weight = sum(test_case.peso for test_case in test_cases) or 1.0
+    passed_weight = 0.0
+    first_error: str | None = None
     tests_ok = 0
 
-    for caso, resultado in zip(casos, resultados_parseados, strict=False):
-        stdout = str(resultado.get("stdout", ""))
-        stderr = str(resultado.get("stderr", ""))
-        returncode = int(resultado.get("returncode", 1))
-        error_type = clasificar_error(returncode, stderr)
+    for test_case, result in zip(test_cases, parsed_results, strict=False):
+        case_stdout = str(result.get("stdout", ""))
+        case_stderr = str(result.get("stderr", ""))
+        returncode = int(result.get("returncode", 1))
+        error_type = clasificar_error(returncode, case_stderr)
 
-        if caso.salida_esperada == "":
+        if test_case.salida_esperada == "":
             passed = returncode == 0
         else:
-            passed = returncode == 0 and stdout.strip() == caso.salida_esperada.strip()
+            passed = (
+                returncode == 0
+                and case_stdout.strip() == test_case.salida_esperada.strip()
+            )
             if returncode == 0 and not passed:
                 error_type = "WRONG_OUTPUT"
 
         if passed:
-            peso_ok += caso.peso
+            passed_weight += test_case.peso
             tests_ok += 1
-        elif primer_error is None:
-            primer_error = error_type
+        elif first_error is None:
+            first_error = error_type
 
     return ResultadoPregunta(
-        pregunta_id=pregunta.id,
-        tipo=pregunta.tipo,
+        pregunta_id=question.id,
+        tipo=question.tipo,
         estado="corregida",
-        nota=round((peso_ok / peso_total) * 10, 2),
+        nota=round((passed_weight / total_weight) * 10, 2),
         tests_ok=tests_ok,
-        tests_total=len(casos),
-        error_type=primer_error,
+        tests_total=len(test_cases),
+        error_type=first_error,
     )
 
 
-def corregir_tipo_test(pregunta: Pregunta, contenido: str) -> ResultadoPregunta:
-    correcto = (pregunta.respuesta_correcta or "").strip()
-    nota = 10.0 if contenido.strip() == correcto else 0.0
+def grade_multiple_choice_answer(question: Pregunta, answer: str) -> ResultadoPregunta:
+    correct_answer = (question.respuesta_correcta or "").strip()
+    score = 10.0 if answer.strip() == correct_answer else 0.0
     return ResultadoPregunta(
-        pregunta_id=pregunta.id,
-        tipo=pregunta.tipo,
+        pregunta_id=question.id,
+        tipo=question.tipo,
         estado="corregida",
-        nota=nota,
-        tests_ok=1 if nota == 10.0 else 0,
+        nota=score,
+        tests_ok=1 if score == 10.0 else 0,
         tests_total=1,
-        error_type=None if nota == 10.0 else "WRONG_OPTION",
+        error_type=None if score == 10.0 else "WRONG_OPTION",
     )
 
 
-def marcar_revision_docente(pregunta: Pregunta) -> ResultadoPregunta:
+def mark_for_manual_review(question: Pregunta) -> ResultadoPregunta:
     return ResultadoPregunta(
-        pregunta_id=pregunta.id,
-        tipo=pregunta.tipo,
+        pregunta_id=question.id,
+        tipo=question.tipo,
         estado="pendiente_revision",
         nota=None,
     )
 
 
-def corregir_respuesta(
-    pregunta: Pregunta,
-    contenido: str,
-    casos: list[CasoPrueba],
+def grade_answer(
+    question: Pregunta,
+    answer: str,
+    test_cases: list[CasoPrueba],
 ) -> ResultadoPregunta:
-    if pregunta.tipo in {"rellenar_huecos", "corregir_codigo"}:
-        return corregir_codigo(pregunta, contenido, casos)
-    if pregunta.tipo == "tipo_test":
-        return corregir_tipo_test(pregunta, contenido)
-    return marcar_revision_docente(pregunta)
+    if question.tipo in {"rellenar_huecos", "corregir_codigo"}:
+        return grade_code_answer(question, answer, test_cases)
+    if question.tipo == "tipo_test":
+        return grade_multiple_choice_answer(question, answer)
+    return mark_for_manual_review(question)
 
 
 def grade_entrega(
@@ -251,33 +254,33 @@ def grade_entrega(
     preguntas: list[Pregunta],
     casos_por_pregunta: dict[int, list[CasoPrueba]],
 ) -> dict[str, object]:
-    respuestas_por_pregunta = {
+    answers_by_question = {
         respuesta.pregunta_id: respuesta.contenido for respuesta in respuestas_alumno
     }
-    desglose: list[dict[str, object]] = []
-    peso_total = 0.0
-    nota_ponderada = 0.0
-    pendientes = 0
+    breakdown: list[dict[str, object]] = []
+    total_weight = 0.0
+    weighted_score = 0.0
+    pending_reviews = 0
 
-    for pregunta in sorted(preguntas, key=lambda item: item.orden):
-        resultado = corregir_respuesta(
-            pregunta,
-            respuestas_por_pregunta.get(pregunta.id, ""),
-            casos_por_pregunta.get(pregunta.id, []),
+    for question in sorted(preguntas, key=lambda item: item.orden):
+        result = grade_answer(
+            question,
+            answers_by_question.get(question.id, ""),
+            casos_por_pregunta.get(question.id, []),
         )
-        desglose.append(resultado.to_public_dict())
+        breakdown.append(result.to_public_dict())
 
-        if resultado.estado == "pendiente_revision":
-            pendientes += 1
+        if result.estado == "pendiente_revision":
+            pending_reviews += 1
             continue
 
-        peso = float(pregunta.peso)
-        peso_total += peso
-        nota_ponderada += float(resultado.nota or 0.0) * peso
+        weight = float(question.peso)
+        total_weight += weight
+        weighted_score += float(result.nota or 0.0) * weight
 
-    nota_global = round(nota_ponderada / peso_total, 2) if peso_total else 0.0
+    nota_global = round(weighted_score / total_weight, 2) if total_weight else 0.0
     return {
         "nota_global": nota_global,
-        "preguntas_pendientes": pendientes,
-        "desglose": desglose,
+        "preguntas_pendientes": pending_reviews,
+        "desglose": breakdown,
     }
