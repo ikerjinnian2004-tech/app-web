@@ -97,6 +97,39 @@ export function listarEntregasProfesor() {
   return peticionApi('/profesor/entregas');
 }
 
+export function listarPreguntasProfesor(filtros = {}) {
+  const parametros = new URLSearchParams();
+  if (filtros.tipo) {
+    parametros.set('tipo', filtros.tipo);
+  }
+  if (filtros.estado) {
+    parametros.set('estado', filtros.estado);
+  }
+  const consulta = parametros.size ? `?${parametros.toString()}` : '';
+  return peticionApi(`/profesor/preguntas${consulta}`);
+}
+
+export function crearPreguntaProfesor(datos) {
+  return peticionApi('/profesor/preguntas', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function versionarPreguntaProfesor(preguntaId, datos) {
+  return peticionApi(`/profesor/preguntas/${preguntaId}/versiones`, {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function actualizarEstadoPreguntaProfesor(preguntaId, estado) {
+  return peticionApi(`/profesor/preguntas/${preguntaId}/estado`, {
+    method: 'POST',
+    body: JSON.stringify({ estado }),
+  });
+}
+
 export function exportarCsvProfesor() {
   return peticionApi('/profesor/exportar');
 }

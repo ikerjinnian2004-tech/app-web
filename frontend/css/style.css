@@ -332,6 +332,90 @@ pre {
   overflow: auto;
 }
 
+.rejilla-panel-docente {
+  display: grid;
+  gap: 24px;
+}
+
+.panel-catalogo,
+.panel-entregas {
+  min-width: 0;
+}
+
+.cabecera-seccion {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.cabecera-seccion h2 {
+  margin-bottom: 0;
+}
+
+.filtros,
+.rejilla-campos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.filtros label {
+  grid-column: span 1;
+}
+
+.filtros select {
+  grid-column: span 2;
+}
+
+.rejilla-campos label {
+  grid-column: span 2;
+}
+
+.formulario-docente {
+  max-width: 920px;
+}
+
+.textarea-compacta {
+  min-height: 92px;
+}
+
+.casos-prueba {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+}
+
+.caso-prueba-editor {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--linea);
+  border-radius: 6px;
+  background: #fbfcff;
+}
+
+.caso-prueba-editor .codigo-caso {
+  grid-column: 1 / -1;
+}
+
+.caso-prueba-editor textarea {
+  min-height: 82px;
+}
+
+.acciones-tabla {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -367,6 +451,7 @@ th {
   }
 
   .cabecera-examen,
+  .cabecera-seccion,
   .barra-envio,
   .pregunta header {
     align-items: stretch;
@@ -375,5 +460,18 @@ th {
 
   .temporizador {
     justify-items: start;
+  }
+
+  .filtros,
+  .rejilla-campos,
+  .caso-prueba-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .filtros label,
+  .filtros select,
+  .rejilla-campos label,
+  .caso-prueba-editor .codigo-caso {
+    grid-column: 1;
   }
 }

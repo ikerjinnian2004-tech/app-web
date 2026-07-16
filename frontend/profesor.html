@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Panel docente de entregas y evidencias">
-  <title>Profesor | Evaluador Python</title>
+  <meta name="description" content="Panel de profesorado para gestionar preguntas y entregas">
+  <title>Profesorado | Evaluador Python</title>
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
   <header class="cabecera-examen">
     <div>
-      <p class="etiqueta-centro">Profesor</p>
+      <p class="etiqueta-centro">Profesorado</p>
       <h1>Panel docente</h1>
     </div>
     <button id="descargar-csv" class="boton-secundario" type="button">Descargar CSV</button>
@@ -18,7 +18,115 @@
 
   <main class="contenedor-ancho">
     <p id="mensaje-profesor" class="mensaje" aria-live="polite"></p>
-    <section id="entregas" class="tabla-docente"></section>
+    <div class="rejilla-panel-docente">
+      <section class="panel panel-catalogo" aria-labelledby="titulo-catalogo">
+        <header class="cabecera-seccion">
+          <div>
+            <p class="etiqueta-centro">Banco ampliable</p>
+            <h2 id="titulo-catalogo">Catálogo de preguntas</h2>
+          </div>
+          <button id="nueva-pregunta" class="boton-principal" type="button">Nueva pregunta</button>
+        </header>
+
+        <form id="filtros-preguntas" class="filtros" aria-label="Filtros del catálogo">
+          <label for="filtro-tipo">Tipo</label>
+          <select id="filtro-tipo" name="tipo">
+            <option value="">Todos</option>
+            <option value="rellenar_huecos">Rellenar huecos</option>
+            <option value="corregir_codigo">Corregir código</option>
+            <option value="tipo_test">Tipo test</option>
+            <option value="respuesta_corta">Respuesta corta</option>
+          </select>
+          <label for="filtro-estado">Estado</label>
+          <select id="filtro-estado" name="estado">
+            <option value="">Todos</option>
+            <option value="borrador">Borrador</option>
+            <option value="publicada">Publicada</option>
+            <option value="retirada">Retirada</option>
+          </select>
+          <button class="boton-secundario" type="submit">Aplicar</button>
+        </form>
+        <div id="catalogo-preguntas" class="tabla-docente" tabindex="0"></div>
+      </section>
+
+      <section id="editor-pregunta" class="panel hidden" aria-labelledby="titulo-editor">
+        <header class="cabecera-seccion">
+          <div>
+            <p class="etiqueta-centro">Edición versionada</p>
+            <h2 id="titulo-editor">Nueva pregunta</h2>
+          </div>
+          <button id="cerrar-editor" class="boton-secundario" type="button">Cerrar</button>
+        </header>
+
+        <form id="formulario-pregunta" class="formulario formulario-docente" novalidate>
+          <input id="pregunta-id" name="pregunta_id" type="hidden">
+          <div class="rejilla-campos">
+            <label>Examen
+              <input name="examen_id" type="number" min="1" value="1" required>
+            </label>
+            <label>Clave estable
+              <input name="clave" type="text" pattern="[a-z0-9]+(?:-[a-z0-9]+)*" placeholder="listas-comprension" required>
+            </label>
+            <label>Tipo
+              <select name="tipo" required>
+                <option value="rellenar_huecos">Rellenar huecos</option>
+                <option value="corregir_codigo">Corregir código</option>
+                <option value="tipo_test">Tipo test</option>
+                <option value="respuesta_corta">Respuesta corta</option>
+              </select>
+            </label>
+            <label>Estado
+              <select name="estado" required>
+                <option value="borrador">Borrador</option>
+                <option value="publicada">Publicada</option>
+              </select>
+            </label>
+            <label>Orden
+              <input name="orden" type="number" min="1" value="1" required>
+            </label>
+            <label>Peso
+              <input name="peso" type="number" min="0.1" max="100" step="0.1" value="1" required>
+            </label>
+          </div>
+
+          <label>Título
+            <input name="titulo" type="text" maxlength="200" required>
+          </label>
+          <label>Enunciado
+            <textarea name="enunciado" maxlength="20000" required></textarea>
+          </label>
+          <label>Plantilla de código
+            <textarea name="codigo_plantilla" placeholder="Usa [BLANK] para cada hueco"></textarea>
+          </label>
+          <label>Solución de referencia
+            <textarea name="codigo_solucion"></textarea>
+          </label>
+          <label>Opciones (una por línea)
+            <textarea name="opciones" class="textarea-compacta"></textarea>
+          </label>
+          <label>Respuesta correcta
+            <input name="respuesta_correcta" type="text">
+          </label>
+          <label>Límites por hueco (separados por comas)
+            <input name="limites_caracteres" type="text" inputmode="numeric" placeholder="50, 50">
+          </label>
+
+          <fieldset class="casos-prueba">
+            <legend>Casos de prueba</legend>
+            <p class="muted">Los casos visibles orientan al alumnado; los ocultos refuerzan la corrección.</p>
+            <div id="lista-casos-prueba"></div>
+            <button id="anadir-caso" class="boton-secundario" type="button">Añadir caso</button>
+          </fieldset>
+          <button class="boton-principal" type="submit">Guardar como nueva versión</button>
+        </form>
+      </section>
+
+      <section class="panel panel-entregas" aria-labelledby="titulo-entregas">
+        <p class="etiqueta-centro">Seguimiento</p>
+        <h2 id="titulo-entregas">Entregas y evidencias</h2>
+        <div id="entregas" class="tabla-docente" tabindex="0"></div>
+      </section>
+    </div>
   </main>
 
   <script type="module" src="./js/profesor.js"></script>
