@@ -18,6 +18,7 @@ def iniciar_examen(client, headers):
         json={
             "consentimiento_version": consentimiento["version"],
             "acepta_grabacion": True,
+            "permisos_evidencia_verificados": True,
         },
     )
     assert response.status_code == 200
@@ -106,6 +107,22 @@ def test_examen_exige_consentimiento(client, examen_activo) -> None:
         json={
             "consentimiento_version": consentimiento["version"],
             "acepta_grabacion": False,
+            "permisos_evidencia_verificados": True,
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_examen_exige_permisos_de_evidencia_verificados(client, examen_activo) -> None:
+    headers = acceder_alumno(client)
+    consentimiento = client.get("/consentimiento").json()
+    response = client.post(
+        "/examen/iniciar",
+        headers=headers,
+        json={
+            "consentimiento_version": consentimiento["version"],
+            "acepta_grabacion": True,
+            "permisos_evidencia_verificados": False,
         },
     )
     assert response.status_code == 400
@@ -215,6 +232,7 @@ def test_examen_fuera_de_ventana_no_puede_iniciarse(
         json={
             "consentimiento_version": consentimiento["version"],
             "acepta_grabacion": True,
+            "permisos_evidencia_verificados": True,
         },
     )
 

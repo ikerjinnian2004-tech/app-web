@@ -41,6 +41,7 @@ class ConsentimientoResponse(BaseModel):
 class IniciarExamenRequest(BaseModel):
     consentimiento_version: str = Field(min_length=16, max_length=64)
     acepta_grabacion: bool
+    permisos_evidencia_verificados: bool
 
 
 class PreguntaExamen(BaseModel):
@@ -161,6 +162,8 @@ class EntregaDetalleProfesor(EntregaProfesor):
     modo_calificacion: ModoCalificacion
     entregado_automaticamente: bool
     consentimiento_version: str
+    acepta_grabacion: bool
+    permisos_evidencia_verificados: bool
     preguntas: list[dict[str, Any]]
     desglose: list[dict[str, Any]]
     eventos_detalle: list[dict[str, Any]]

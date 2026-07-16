@@ -183,6 +183,9 @@ class Entrega(Base):
     hora_entrega: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     consentimiento_version: Mapped[str] = mapped_column(String(64), nullable=False)
     acepta_grabacion: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    permisos_evidencia_verificados: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     entregado_automaticamente: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

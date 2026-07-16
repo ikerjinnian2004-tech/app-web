@@ -49,6 +49,7 @@ def registrar_evento(
         entrega is not None
         and not entrega.cerrada
         and entrega.acepta_grabacion
+        and entrega.permisos_evidencia_verificados
         and request.tipo in EVENTOS_CON_EVIDENCIA
     )
     return AuditEventResponse(ok=True, evento_id=evento.id, grabar_evidencia=grabar)
@@ -68,7 +69,11 @@ async def subir_evidencia(
         raise not_found("El evento de auditoría no existe.")
     if evento.usuario_id != alumno.id:
         raise forbidden("No puedes adjuntar evidencia a un evento ajeno.")
-    if evento.entrega is None or not evento.entrega.acepta_grabacion:
+    if (
+        evento.entrega is None
+        or not evento.entrega.acepta_grabacion
+        or not evento.entrega.permisos_evidencia_verificados
+    ):
         raise forbidden("La entrega no tiene consentimiento de grabación asociado.")
     if evento.entrega.cerrada:
         raise forbidden("No se admiten evidencias para una entrega cerrada.")

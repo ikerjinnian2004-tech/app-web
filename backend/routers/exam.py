@@ -105,6 +105,10 @@ def iniciar_examen(
 ) -> ExamenResponse:
     if not request.acepta_grabacion:
         raise bad_request("Debes aceptar el consentimiento para iniciar la prueba.")
+    if not request.permisos_evidencia_verificados:
+        raise bad_request(
+            "Debes conceder los permisos de pantalla, cámara y micrófono."
+        )
 
     version_actual = obtener_version_consentimiento()
     if request.consentimiento_version != version_actual:
@@ -133,6 +137,7 @@ def iniciar_examen(
             hora_inicio=utc_now_naive(),
             consentimiento_version=version_actual,
             acepta_grabacion=request.acepta_grabacion,
+            permisos_evidencia_verificados=(request.permisos_evidencia_verificados),
             preguntas=preguntas,
         )
         entrega.examen = examen

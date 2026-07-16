@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 4
+VERSION_ESQUEMA = 5
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -36,6 +36,9 @@ COLUMNAS_ENTREGA_VERSIONADA = {
 COLUMNAS_ENTREGA_CONCURRENTE = {
     "procesando": "BOOLEAN NOT NULL DEFAULT FALSE",
     "procesando_desde": "TIMESTAMP NULL",
+}
+COLUMNAS_PERMISOS_EVIDENCIA = {
+    "permisos_evidencia_verificados": "BOOLEAN NOT NULL DEFAULT FALSE",
 }
 
 
@@ -119,11 +122,16 @@ def _aplicar_migracion_concurrencia(connection: Connection) -> None:
     _agregar_columnas(connection, "entregas", COLUMNAS_ENTREGA_CONCURRENTE)
 
 
+def _aplicar_migracion_permisos(connection: Connection) -> None:
+    _agregar_columnas(connection, "entregas", COLUMNAS_PERMISOS_EVIDENCIA)
+
+
 MIGRACIONES = (
     (1, "banco_preguntas_versionado", _aplicar_migracion_banco),
     (2, "configuracion_examen_versionada", _aplicar_migracion_version_examen),
     (3, "revision_manual_trazable", lambda _: None),
     (4, "cierre_entrega_concurrente", _aplicar_migracion_concurrencia),
+    (5, "permisos_evidencia_verificados", _aplicar_migracion_permisos),
 )
 
 

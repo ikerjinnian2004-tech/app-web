@@ -126,6 +126,7 @@ def crear_entrega(
     hora_inicio: datetime,
     consentimiento_version: str,
     acepta_grabacion: bool,
+    permisos_evidencia_verificados: bool,
     preguntas: list[Pregunta],
 ) -> Entrega:
     entrega = Entrega(
@@ -138,6 +139,7 @@ def crear_entrega(
         hora_inicio=hora_inicio,
         consentimiento_version=consentimiento_version,
         acepta_grabacion=acepta_grabacion,
+        permisos_evidencia_verificados=permisos_evidencia_verificados,
     )
     db.add(entrega)
     db.flush()

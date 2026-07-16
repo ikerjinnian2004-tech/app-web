@@ -651,6 +651,8 @@ def entrega_detallada(entrega: Entrega) -> EntregaDetalleProfesor:
         modo_calificacion=entrega.modo_calificacion,
         entregado_automaticamente=entrega.entregado_automaticamente,
         consentimiento_version=entrega.consentimiento_version,
+        acepta_grabacion=entrega.acepta_grabacion,
+        permisos_evidencia_verificados=(entrega.permisos_evidencia_verificados),
         preguntas=preguntas,
         desglose=(
             json.loads(entrega.calificacion.desglose_json)

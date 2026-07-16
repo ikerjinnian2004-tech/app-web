@@ -45,6 +45,7 @@ def iniciar_examen(client, headers: dict[str, str]) -> dict:
         json={
             "consentimiento_version": consentimiento["version"],
             "acepta_grabacion": True,
+            "permisos_evidencia_verificados": True,
         },
     )
     response.raise_for_status()

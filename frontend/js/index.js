@@ -8,6 +8,30 @@ const textoConsentimiento = document.getElementById('texto-consentimiento');
 const aceptaGrabacion = document.getElementById('acepta-grabacion');
 let consentimientoVersion = '';
 
+function detenerStream(stream) {
+  stream?.getTracks().forEach((pista) => pista.stop());
+}
+
+async function verificarPermisosEvidencia() {
+  if (!navigator.mediaDevices?.getDisplayMedia || !navigator.mediaDevices?.getUserMedia) {
+    return false;
+  }
+  let pantalla;
+  let camaraAudio;
+  try {
+    pantalla = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    camaraAudio = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    return pantalla.getVideoTracks().length > 0
+      && camaraAudio.getVideoTracks().length > 0
+      && camaraAudio.getAudioTracks().length > 0;
+  } catch {
+    return false;
+  } finally {
+    detenerStream(pantalla);
+    detenerStream(camaraAudio);
+  }
+}
+
 function rolSeleccionado() {
   return formulario.elements.rol.value;
 }
@@ -43,6 +67,16 @@ formulario?.addEventListener('submit', async (event) => {
     return;
   }
 
+  let permisosEvidenciaVerificados = false;
+  if (rol === 'alumno') {
+    mensaje.textContent = 'Comprueba los permisos de pantalla, cámara y micrófono.';
+    permisosEvidenciaVerificados = await verificarPermisosEvidencia();
+    if (!permisosEvidenciaVerificados) {
+      mensaje.textContent = 'Debes conceder pantalla, cámara y micrófono para iniciar el examen.';
+      return;
+    }
+  }
+
   limpiarSesion();
   const acceso = await acceder(rol, correo);
   if (!acceso.ok) {
@@ -56,7 +90,11 @@ formulario?.addEventListener('submit', async (event) => {
     return;
   }
 
-  const examen = await iniciarExamen(consentimientoVersion, aceptaGrabacion.checked);
+  const examen = await iniciarExamen(
+    consentimientoVersion,
+    aceptaGrabacion.checked,
+    permisosEvidenciaVerificados,
+  );
   if (!examen.ok) {
     mensaje.textContent = examen.error;
     return;

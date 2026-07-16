@@ -40,6 +40,8 @@ def test_panel_filtra_muestra_detalle_y_estadisticas(client, examen_activo) -> N
     assert ajenas.json() == []
     assert detalle.status_code == 200
     assert detalle.json()["version_examen"] == 1
+    assert detalle.json()["acepta_grabacion"] is True
+    assert detalle.json()["permisos_evidencia_verificados"] is True
     assert len(detalle.json()["preguntas"]) == 4
     assert all("respuesta" in pregunta for pregunta in detalle.json()["preguntas"])
     casos = [

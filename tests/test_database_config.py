@@ -158,5 +158,5 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
             )
         ).one()
     assert clave == "pregunta-7"
-    assert versiones == 4
+    assert versiones == 5
     assert instantanea == ("Examen legado", 3600)
