@@ -9,6 +9,7 @@ from backend.config import get_settings
 from backend.sandbox.policy import validar_fragmento
 
 configuracion = get_settings()
+INTERPRETE_SANDBOX = getattr(sys, "_base_executable", sys.executable) or sys.executable
 
 try:
     import resource
@@ -70,7 +71,7 @@ def _ejecutar_codigo(
     # Lanzamos Python en modo aislado (-I) para reducir herencia del entorno.
     # Aun así, seguimos hablando de un runner de desarrollo, no de producción.
     entorno_minimo = {"PYTHONIOENCODING": "utf-8"}
-    comando = [sys.executable, "-I", "-c", _envolver_codigo(codigo)]
+    comando = [INTERPRETE_SANDBOX, "-I", "-c", _envolver_codigo(codigo)]
 
     try:
         with tempfile.TemporaryDirectory(prefix="sandbox-dev-") as directorio_temporal:

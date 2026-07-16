@@ -1,5 +1,4 @@
 import subprocess
-import sys
 import time
 
 import pytest
@@ -9,7 +8,11 @@ from backend.sandbox.policy import (
     clasificar_error,
     validar_fragmento,
 )
-from backend.sandbox.runner_subprocess import ejecutar_codigo, ejecutar_codigo_interno
+from backend.sandbox.runner_subprocess import (
+    INTERPRETE_SANDBOX,
+    ejecutar_codigo,
+    ejecutar_codigo_interno,
+)
 
 
 @pytest.mark.parametrize(
@@ -68,7 +71,7 @@ def test_runner_interno_crea_un_subproceso(monkeypatch: pytest.MonkeyPatch) -> N
     resultado = ejecutar_codigo_interno("print('ok')", 1, 5000)
 
     assert calls
-    assert calls[0][0][0] == sys.executable
+    assert calls[0][0][0] == INTERPRETE_SANDBOX
     assert resultado["returncode"] == 0
 
 
