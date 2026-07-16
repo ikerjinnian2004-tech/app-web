@@ -61,7 +61,8 @@ def enviar_entrega(
             return response_from_calificacion(entrega.id, entrega.calificacion)
         raise conflict("La entrega ya está cerrada.")
 
-    limite = entrega.hora_inicio + timedelta(seconds=entrega.examen.duracion_segundos)
+    duracion = entrega.duracion_examen_segundos or entrega.examen.duracion_segundos
+    limite = entrega.hora_inicio + timedelta(seconds=duracion)
     ahora = utc_now_naive()
     if ahora > limite and not (
         request.entregado_automaticamente
@@ -91,7 +92,7 @@ def enviar_entrega(
         preguntas,
         casos_por_pregunta,
         pesos_por_pregunta=pesos_por_pregunta,
-        modo_calificacion=entrega.examen.modo_calificacion,
+        modo_calificacion=entrega.modo_calificacion,
     )
     calificacion = guardar_calificacion(
         db,

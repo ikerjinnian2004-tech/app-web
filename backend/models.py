@@ -66,6 +66,36 @@ class Examen(Base):
         cascade="all, delete-orphan",
     )
     entregas: Mapped[list["Entrega"]] = relationship("Entrega", back_populates="examen")
+    versiones: Mapped[list["VersionExamen"]] = relationship(
+        "VersionExamen",
+        back_populates="examen",
+        cascade="all, delete-orphan",
+        order_by="VersionExamen.version",
+    )
+
+
+class VersionExamen(Base):
+    """Instantánea auditable de una configuración publicada del examen."""
+
+    __tablename__ = "versiones_examen"
+    __table_args__ = (
+        UniqueConstraint("examen_id", "version", name="uq_examen_version"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    examen_id: Mapped[int] = mapped_column(
+        ForeignKey("examenes.id", ondelete="CASCADE"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    configuracion_json: Mapped[str] = mapped_column(Text, nullable=False)
+    creada_por_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuarios_permitidos.id"), nullable=True
+    )
+    creada_en: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now, nullable=False
+    )
+
+    examen: Mapped["Examen"] = relationship("Examen", back_populates="versiones")
 
 
 class Pregunta(Base):
@@ -141,6 +171,14 @@ class Entrega(Base):
         ForeignKey("usuarios_permitidos.id"), nullable=False
     )
     examen_id: Mapped[int] = mapped_column(ForeignKey("examenes.id"), nullable=False)
+    version_examen: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    titulo_examen: Mapped[str] = mapped_column(String(200), default="", nullable=False)
+    duracion_examen_segundos: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+    modo_calificacion: Mapped[str] = mapped_column(
+        String(30), default="parcial_por_tests", nullable=False
+    )
     hora_inicio: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     hora_entrega: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     consentimiento_version: Mapped[str] = mapped_column(String(64), nullable=False)

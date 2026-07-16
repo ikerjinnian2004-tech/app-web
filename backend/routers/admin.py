@@ -15,23 +15,121 @@ from sqlalchemy.orm import joinedload
 from backend.crud import listar_entregas_para_profesor, obtener_evidencia
 from backend.database import get_db
 from backend.errors import bad_request, conflict, not_found
-from backend.models import CasoPrueba, Entrega, Examen, Pregunta, UsuarioPermitido
+from backend.models import (
+    CasoPrueba,
+    Entrega,
+    Examen,
+    Pregunta,
+    UsuarioPermitido,
+    VersionExamen,
+)
 from backend.schemas import (
     CasoPruebaDocente,
+    ConfiguracionExamenActualizar,
     DefinicionPreguntaDocente,
     EntregaProfesor,
     EstadoPregunta,
     EstadoPreguntaActualizar,
     EventoProfesor,
+    ExamenDocente,
     PreguntaCrear,
     PreguntaDocente,
     PreguntaVersionar,
     TipoPregunta,
+    VersionExamenDocente,
 )
 from backend.security import exigir_rol
 from backend.template_engine import contar_huecos, validar_plantilla
 
 router = APIRouter()
+
+
+def _fecha_utc_naive(value: datetime | None) -> datetime | None:
+    if value is None or value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def _configuracion_examen(examen: Examen) -> dict[str, object]:
+    return {
+        "titulo": examen.titulo,
+        "descripcion": examen.descripcion,
+        "duracion_segundos": examen.duracion_segundos,
+        "estado": examen.estado,
+        "modo_calificacion": examen.modo_calificacion,
+        "seleccion_por_tipo": json.loads(examen.seleccion_json or "{}"),
+        "apertura_en": fecha_publica(examen.apertura_en),
+        "cierre_en": fecha_publica(examen.cierre_en),
+    }
+
+
+def _examen_docente(examen: Examen) -> ExamenDocente:
+    return ExamenDocente(
+        id=examen.id,
+        version=examen.version,
+        activo=examen.activo,
+        profesor_id=examen.profesor_id,
+        titulo=examen.titulo,
+        descripcion=examen.descripcion,
+        duracion_segundos=examen.duracion_segundos,
+        estado=examen.estado,
+        modo_calificacion=examen.modo_calificacion,
+        seleccion_por_tipo=json.loads(examen.seleccion_json or "{}"),
+        apertura_en=examen.apertura_en,
+        cierre_en=examen.cierre_en,
+    )
+
+
+def _validar_configuracion_examen(
+    db: Session,
+    examen: Examen,
+    datos: ConfiguracionExamenActualizar,
+) -> tuple[datetime | None, datetime | None]:
+    apertura = _fecha_utc_naive(datos.apertura_en)
+    cierre = _fecha_utc_naive(datos.cierre_en)
+    if apertura is not None and cierre is not None and apertura >= cierre:
+        raise bad_request("La fecha de cierre debe ser posterior a la apertura.")
+    if not datos.seleccion_por_tipo or sum(datos.seleccion_por_tipo.values()) < 1:
+        raise bad_request("La selección debe incluir al menos una pregunta.")
+    for tipo, cantidad in datos.seleccion_por_tipo.items():
+        if cantidad < 0:
+            raise bad_request("Las cantidades de preguntas no pueden ser negativas.")
+        disponibles = db.scalar(
+            select(func.count(Pregunta.id)).where(
+                Pregunta.examen_id == examen.id,
+                Pregunta.tipo == tipo,
+                Pregunta.estado == "publicada",
+            )
+        )
+        if int(disponibles or 0) < cantidad:
+            raise bad_request(
+                f"No hay {cantidad} preguntas publicadas disponibles del tipo {tipo}."
+            )
+    return apertura, cierre
+
+
+def _anadir_instantanea_examen(
+    db: Session,
+    examen: Examen,
+    profesor_id: int,
+) -> None:
+    existente = db.scalar(
+        select(VersionExamen.id).where(
+            VersionExamen.examen_id == examen.id,
+            VersionExamen.version == examen.version,
+        )
+    )
+    if existente is None:
+        db.add(
+            VersionExamen(
+                examen_id=examen.id,
+                version=examen.version,
+                configuracion_json=json.dumps(
+                    _configuracion_examen(examen), ensure_ascii=False
+                ),
+                creada_por_id=profesor_id,
+            )
+        )
 
 
 def _pregunta_docente(pregunta: Pregunta) -> PreguntaDocente:
@@ -155,6 +253,76 @@ def fecha_publica(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+
+
+@router.get("/examenes", response_model=list[ExamenDocente])
+def listar_examenes(
+    _: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> list[ExamenDocente]:
+    examenes = db.scalars(select(Examen).order_by(Examen.id.desc())).all()
+    return [_examen_docente(examen) for examen in examenes]
+
+
+@router.get(
+    "/examenes/{examen_id}/versiones", response_model=list[VersionExamenDocente]
+)
+def listar_versiones_examen(
+    examen_id: int,
+    _: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> list[VersionExamenDocente]:
+    if db.get(Examen, examen_id) is None:
+        raise not_found("El examen solicitado no existe.")
+    versiones = db.scalars(
+        select(VersionExamen)
+        .where(VersionExamen.examen_id == examen_id)
+        .order_by(VersionExamen.version)
+    ).all()
+    return [
+        VersionExamenDocente(
+            version=version.version,
+            configuracion=json.loads(version.configuracion_json),
+            creada_por_id=version.creada_por_id,
+            creada_en=version.creada_en,
+        )
+        for version in versiones
+    ]
+
+
+@router.post(
+    "/examenes/{examen_id}/versiones", response_model=ExamenDocente, status_code=201
+)
+def versionar_configuracion_examen(
+    examen_id: int,
+    datos: ConfiguracionExamenActualizar,
+    profesor: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> ExamenDocente:
+    examen = db.get(Examen, examen_id)
+    if examen is None:
+        raise not_found("El examen solicitado no existe.")
+    apertura, cierre = _validar_configuracion_examen(db, examen, datos)
+    _anadir_instantanea_examen(db, examen, profesor.id)
+
+    examen.version += 1
+    examen.titulo = datos.titulo
+    examen.descripcion = datos.descripcion
+    examen.duracion_segundos = datos.duracion_segundos
+    examen.estado = datos.estado
+    examen.activo = datos.estado == "publicado"
+    examen.modo_calificacion = datos.modo_calificacion
+    examen.seleccion_json = json.dumps(datos.seleccion_por_tipo, ensure_ascii=False)
+    examen.apertura_en = apertura
+    examen.cierre_en = cierre
+    _anadir_instantanea_examen(db, examen, profesor.id)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise conflict("No se pudo crear la versión del examen.") from exc
+    db.refresh(examen)
+    return _examen_docente(examen)
 
 
 @router.get("/preguntas", response_model=list[PreguntaDocente])
@@ -301,7 +469,7 @@ def entrega_profesor(entrega: Entrega) -> EntregaProfesor:
         entrega_id=entrega.id,
         alumno=f"{entrega.alumno.nombre} {entrega.alumno.apellidos}".strip(),
         correo=entrega.alumno.correo,
-        examen=entrega.examen.titulo,
+        examen=entrega.titulo_examen or entrega.examen.titulo,
         nota_global=entrega.calificacion.nota_global if entrega.calificacion else None,
         preguntas_pendientes=(
             entrega.calificacion.preguntas_pendientes if entrega.calificacion else 0
@@ -368,7 +536,7 @@ def exportar_csv(
                 entrega.id,
                 f"{entrega.alumno.nombre} {entrega.alumno.apellidos}".strip(),
                 entrega.alumno.correo,
-                entrega.examen.titulo,
+                entrega.titulo_examen or entrega.examen.titulo,
                 entrega.calificacion.nota_global if entrega.calificacion else "",
                 entrega.calificacion.preguntas_pendientes
                 if entrega.calificacion

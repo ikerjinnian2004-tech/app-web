@@ -80,12 +80,18 @@ def response_from_entrega(entrega: Entrega) -> ExamenResponse:
     return ExamenResponse(
         examen_id=entrega.examen.id,
         entrega_id=entrega.id,
-        titulo=entrega.examen.titulo,
-        duracion_segundos=entrega.examen.duracion_segundos,
+        titulo=entrega.titulo_examen or entrega.examen.titulo,
+        duracion_segundos=(
+            entrega.duracion_examen_segundos or entrega.examen.duracion_segundos
+        ),
         hora_inicio_servidor=to_public_utc(entrega.hora_inicio),
         hora_actual_servidor=to_public_utc(utc_now_naive()),
         hora_limite_servidor=to_public_utc(
-            entrega.hora_inicio + timedelta(seconds=entrega.examen.duracion_segundos)
+            entrega.hora_inicio
+            + timedelta(
+                seconds=entrega.duracion_examen_segundos
+                or entrega.examen.duracion_segundos
+            )
         ),
         preguntas=preguntas,
     )
@@ -123,7 +129,7 @@ def iniciar_examen(
         entrega = crear_entrega(
             db,
             alumno_id=alumno.id,
-            examen_id=examen.id,
+            examen=examen,
             hora_inicio=utc_now_naive(),
             consentimiento_version=version_actual,
             acepta_grabacion=request.acepta_grabacion,

@@ -32,7 +32,13 @@ from backend.datos_iniciales import (  # noqa: E402
     normalizar_correo,
 )
 from backend.main import app  # noqa: E402
-from backend.models import CasoPrueba, Examen, Pregunta, UsuarioPermitido  # noqa: E402
+from backend.models import (  # noqa: E402
+    CasoPrueba,
+    Examen,
+    Pregunta,
+    UsuarioPermitido,
+    VersionExamen,
+)
 
 
 @pytest.fixture(scope="function")
@@ -107,6 +113,26 @@ def examen_activo(db_session: Session) -> Examen:
     )
     db_session.add(examen)
     db_session.flush()
+    db_session.add(
+        VersionExamen(
+            examen_id=examen.id,
+            version=examen.version,
+            configuracion_json=json.dumps(
+                {
+                    "titulo": examen.titulo,
+                    "descripcion": examen.descripcion,
+                    "duracion_segundos": examen.duracion_segundos,
+                    "estado": examen.estado,
+                    "modo_calificacion": examen.modo_calificacion,
+                    "seleccion_por_tipo": examen_data.get("seleccion_por_tipo", {}),
+                    "apertura_en": None,
+                    "cierre_en": None,
+                },
+                ensure_ascii=False,
+            ),
+            creada_por_id=profesor_principal.id,
+        )
+    )
 
     for pregunta_data in iterar_preguntas_iniciales(datos):
         pregunta = Pregunta(

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 RolUsuario = Literal["alumno", "profesor"]
 EstadoPregunta = Literal["borrador", "publicada", "retirada"]
+EstadoExamen = Literal["borrador", "publicado", "archivado"]
+ModoCalificacion = Literal["parcial_por_tests", "todo_o_nada_por_pregunta"]
 TipoPregunta = Literal[
     "rellenar_huecos",
     "corregir_codigo",
@@ -195,6 +198,33 @@ class PreguntaDocente(DefinicionPreguntaDocente):
     creada_por_id: int | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ConfiguracionExamenActualizar(BaseModel):
+    titulo: str = Field(min_length=1, max_length=200)
+    descripcion: str = Field(default="", max_length=20_000)
+    duracion_segundos: int = Field(ge=60, le=28_800)
+    estado: EstadoExamen
+    modo_calificacion: ModoCalificacion
+    seleccion_por_tipo: dict[TipoPregunta, int]
+    apertura_en: datetime | None = None
+    cierre_en: datetime | None = None
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ExamenDocente(ConfiguracionExamenActualizar):
+    id: int
+    version: int
+    activo: bool
+    profesor_id: int | None
+
+
+class VersionExamenDocente(BaseModel):
+    version: int
+    configuracion: dict[str, Any]
+    creada_por_id: int | None
+    creada_en: datetime
 
 
 class HealthResponse(BaseModel):

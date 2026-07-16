@@ -36,7 +36,7 @@ def main() -> int:
         iterar_usuarios_iniciales,
         normalizar_correo,
     )
-    from backend.models import CasoPrueba, Examen, Pregunta
+    from backend.models import CasoPrueba, Examen, Pregunta, VersionExamen
     from backend.template_engine import validar_plantilla
 
     create_tables()
@@ -79,6 +79,26 @@ def main() -> int:
         )
         db.add(examen)
         db.flush()
+        db.add(
+            VersionExamen(
+                examen_id=examen.id,
+                version=examen.version,
+                configuracion_json=json.dumps(
+                    {
+                        "titulo": examen.titulo,
+                        "descripcion": examen.descripcion,
+                        "duracion_segundos": examen.duracion_segundos,
+                        "estado": examen.estado,
+                        "modo_calificacion": examen.modo_calificacion,
+                        "seleccion_por_tipo": examen_data.get("seleccion_por_tipo", {}),
+                        "apertura_en": None,
+                        "cierre_en": None,
+                    },
+                    ensure_ascii=False,
+                ),
+                creada_por_id=examen.profesor_id,
+            )
+        )
 
         for pregunta_data in iterar_preguntas_iniciales(datos):
             plantilla = pregunta_data.get("codigo_plantilla")

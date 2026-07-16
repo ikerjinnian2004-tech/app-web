@@ -5,8 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 1
-NOMBRE_MIGRACION = "banco_preguntas_versionado"
+VERSION_ESQUEMA = 2
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -27,6 +26,12 @@ COLUMNAS_PREGUNTA = {
 }
 COLUMNAS_CASO_PRUEBA = {
     "visible": "BOOLEAN NOT NULL DEFAULT FALSE",
+}
+COLUMNAS_ENTREGA_VERSIONADA = {
+    "version_examen": "INTEGER NOT NULL DEFAULT 1",
+    "titulo_examen": "VARCHAR(200) NOT NULL DEFAULT ''",
+    "duracion_examen_segundos": "INTEGER NOT NULL DEFAULT 0",
+    "modo_calificacion": ("VARCHAR(30) NOT NULL DEFAULT 'parcial_por_tests'"),
 }
 
 
@@ -53,6 +58,8 @@ def _agregar_columnas(
     tabla: str,
     columnas: dict[str, str],
 ) -> None:
+    if tabla not in inspect(connection).get_table_names():
+        return
     existentes = {columna["name"] for columna in inspect(connection).get_columns(tabla)}
     for nombre, definicion in columnas.items():
         if nombre not in existentes:
@@ -85,7 +92,32 @@ def _aplicar_migracion_banco(connection: Connection) -> None:
     )
 
 
-def _registrar_version(connection: Connection) -> None:
+def _aplicar_migracion_version_examen(connection: Connection) -> None:
+    _agregar_columnas(connection, "entregas", COLUMNAS_ENTREGA_VERSIONADA)
+    if "entregas" not in inspect(connection).get_table_names():
+        return
+    connection.execute(
+        text(
+            "UPDATE entregas SET "
+            "titulo_examen = COALESCE((SELECT titulo FROM examenes "
+            "WHERE examenes.id = entregas.examen_id), titulo_examen), "
+            "duracion_examen_segundos = COALESCE((SELECT duracion_segundos "
+            "FROM examenes WHERE examenes.id = entregas.examen_id), "
+            "duracion_examen_segundos), "
+            "modo_calificacion = COALESCE((SELECT modo_calificacion "
+            "FROM examenes WHERE examenes.id = entregas.examen_id), "
+            "modo_calificacion)"
+        )
+    )
+
+
+MIGRACIONES = (
+    (1, "banco_preguntas_versionado", _aplicar_migracion_banco),
+    (2, "configuracion_examen_versionada", _aplicar_migracion_version_examen),
+)
+
+
+def _registrar_version(connection: Connection, version: int, nombre: str) -> None:
     aplicada_en = datetime.now(UTC).isoformat()
     connection.execute(
         text(
@@ -93,8 +125,8 @@ def _registrar_version(connection: Connection) -> None:
             "VALUES (:version, :nombre, :aplicada_en)"
         ),
         {
-            "version": VERSION_ESQUEMA,
-            "nombre": NOMBRE_MIGRACION,
+            "version": version,
+            "nombre": nombre,
             "aplicada_en": aplicada_en,
         },
     )
@@ -107,9 +139,12 @@ def preparar_esquema(engine: Engine, metadata: MetaData) -> None:
         es_instalacion_previa = "examenes" in tablas
         _crear_registro_migraciones(connection)
 
-        if es_instalacion_previa and _version_aplicada(connection) < VERSION_ESQUEMA:
-            _aplicar_migracion_banco(connection)
+        for version, nombre, aplicar in MIGRACIONES:
+            if es_instalacion_previa and _version_aplicada(connection) < version:
+                aplicar(connection)
+                _registrar_version(connection, version, nombre)
 
         metadata.create_all(bind=connection)
-        if _version_aplicada(connection) < VERSION_ESQUEMA:
-            _registrar_version(connection)
+        for version, nombre, _ in MIGRACIONES:
+            if _version_aplicada(connection) < version:
+                _registrar_version(connection, version, nombre)

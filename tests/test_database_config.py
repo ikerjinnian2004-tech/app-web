@@ -88,9 +88,35 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
         )
         connection.execute(
             text(
+                "CREATE TABLE entregas ("
+                "id INTEGER PRIMARY KEY, alumno_id INTEGER NOT NULL, "
+                "examen_id INTEGER NOT NULL, hora_inicio TIMESTAMP NOT NULL, "
+                "hora_entrega TIMESTAMP, consentimiento_version VARCHAR(64) NOT NULL, "
+                "acepta_grabacion BOOLEAN NOT NULL, "
+                "entregado_automaticamente BOOLEAN NOT NULL, "
+                "cerrada BOOLEAN NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO examenes "
+                "(id, titulo, duracion_segundos, activo, creado_en) "
+                "VALUES (1, 'Examen legado', 3600, TRUE, CURRENT_TIMESTAMP)"
+            )
+        )
+        connection.execute(
+            text(
                 "INSERT INTO preguntas "
                 "(id, examen_id, tipo, titulo, enunciado, orden, peso) "
                 "VALUES (7, 1, 'tipo_test', 'Legado', '', 1, 1.0)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO entregas "
+                "(id, alumno_id, examen_id, hora_inicio, consentimiento_version, "
+                "acepta_grabacion, entregado_automaticamente, cerrada) "
+                "VALUES (3, 1, 1, CURRENT_TIMESTAMP, 'version', TRUE, FALSE, FALSE)"
             )
         )
 
@@ -109,5 +135,12 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
         versiones = connection.execute(
             text("SELECT COUNT(*) FROM migraciones_esquema")
         ).scalar_one()
+        instantanea = connection.execute(
+            text(
+                "SELECT titulo_examen, duracion_examen_segundos "
+                "FROM entregas WHERE id = 3"
+            )
+        ).one()
     assert clave == "pregunta-7"
-    assert versiones == 1
+    assert versiones == 2
+    assert instantanea == ("Examen legado", 3600)

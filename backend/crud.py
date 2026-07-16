@@ -122,7 +122,7 @@ def get_ultima_entrega(db: Session, alumno_id: int, examen_id: int) -> Entrega |
 def crear_entrega(
     db: Session,
     alumno_id: int,
-    examen_id: int,
+    examen: Examen,
     hora_inicio: datetime,
     consentimiento_version: str,
     acepta_grabacion: bool,
@@ -130,7 +130,11 @@ def crear_entrega(
 ) -> Entrega:
     entrega = Entrega(
         alumno_id=alumno_id,
-        examen_id=examen_id,
+        examen_id=examen.id,
+        version_examen=examen.version,
+        titulo_examen=examen.titulo,
+        duracion_examen_segundos=examen.duracion_segundos,
+        modo_calificacion=examen.modo_calificacion,
         hora_inicio=hora_inicio,
         consentimiento_version=consentimiento_version,
         acepta_grabacion=acepta_grabacion,
