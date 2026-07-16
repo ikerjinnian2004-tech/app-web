@@ -7,6 +7,9 @@ import {
   listarExamenesProfesor,
   listarPreguntasProfesor,
   listarVersionesExamenProfesor,
+  obtenerDetalleEntregaProfesor,
+  obtenerEstadisticasProfesor,
+  revisarRespuestaProfesor,
   versionarExamenProfesor,
   versionarPreguntaProfesor,
 } from './api.js';
@@ -24,6 +27,10 @@ const listaCasos = document.getElementById('lista-casos-prueba');
 const formularioConfiguracion = document.getElementById('formulario-configuracion');
 const versionExamen = document.getElementById('version-examen');
 const historialExamen = document.getElementById('historial-examen');
+const filtrosEntregas = document.getElementById('filtros-entregas');
+const estadisticasEntregas = document.getElementById('estadisticas-entregas');
+const detalleEntrega = document.getElementById('detalle-entrega');
+const contenidoDetalle = document.getElementById('contenido-detalle-entrega');
 let preguntasActuales = [];
 
 function escaparHtml(valor) {
@@ -117,6 +124,7 @@ function renderizarEntregas(entregas) {
           <th>Estado</th>
           <th>Eventos</th>
           <th>Evidencias</th>
+          <th>Detalle</th>
         </tr>
       </thead>
       <tbody>
@@ -131,11 +139,82 @@ function renderizarEntregas(entregas) {
             </td>
             <td>${entrega.eventos.map((evento) => escaparHtml(evento.tipo)).join('<br>') || '-'}</td>
             <td>${enlacesEvidencias(entrega.eventos)}</td>
+            <td><button class="boton-secundario" type="button" data-detalle-entrega="${entrega.entrega_id}">Ver informe</button></td>
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+}
+
+function renderizarEstadisticas(datos) {
+  estadisticasEntregas.innerHTML = `
+    <div class="tarjeta-estadistica"><span>Total</span><strong>${datos.total_entregas}</strong></div>
+    <div class="tarjeta-estadistica"><span>Corregidas</span><strong>${datos.corregidas}</strong></div>
+    <div class="tarjeta-estadistica"><span>Pendientes</span><strong>${datos.pendientes_revision}</strong></div>
+    <div class="tarjeta-estadistica"><span>Nota media</span><strong>${datos.nota_media === null ? '—' : datos.nota_media.toFixed(2)}</strong></div>
+  `;
+}
+
+function casosDePregunta(pregunta) {
+  if (!pregunta.casos_prueba.length) {
+    return '<p class="muted">Sin casos automáticos.</p>';
+  }
+  return `
+    <details>
+      <summary>${pregunta.casos_prueba.length} casos de prueba</summary>
+      ${pregunta.casos_prueba.map((caso) => `
+        <div>
+          <strong>${escaparHtml(caso.descripcion)}</strong>
+          <span class="muted"> · ${caso.visible ? 'visible' : 'oculto'} · peso ${caso.peso}</span>
+          <pre>${escaparHtml(caso.codigo_test)}</pre>
+        </div>
+      `).join('')}
+    </details>
+  `;
+}
+
+function renderizarDetalle(datos) {
+  const resultados = new Map(datos.desglose.map((item) => [item.pregunta_id, item]));
+  contenidoDetalle.innerHTML = `
+    <p><strong>${escaparHtml(datos.alumno)}</strong> · ${escaparHtml(datos.correo)}</p>
+    <p class="muted">${escaparHtml(datos.examen)} v${datos.version_examen} · ${escaparHtml(datos.modo_calificacion)}</p>
+    <div class="detalle-preguntas">
+      ${datos.preguntas.map((pregunta) => {
+        const resultado = resultados.get(pregunta.id) || {};
+        return `
+          <article class="detalle-pregunta">
+            <p class="tipo-pregunta">${escaparHtml(etiquetaTipo(pregunta.tipo))} · peso ${pregunta.peso} · ${escaparHtml(pregunta.clave)} v${pregunta.version}</p>
+            <h3>${pregunta.orden}. ${escaparHtml(pregunta.titulo)}</h3>
+            <p>${escaparHtml(pregunta.enunciado)}</p>
+            <h4>Respuesta</h4>
+            <pre>${escaparHtml(pregunta.respuesta || '(sin contenido)')}</pre>
+            <p><strong>Resultado:</strong> ${resultado.nota === null || resultado.nota === undefined ? 'Revisión pendiente' : `${resultado.nota.toFixed(2)} / 10`}</p>
+            ${casosDePregunta(pregunta)}
+            ${resultado.estado === 'pendiente_revision' ? `
+              <form class="formulario-revision" data-form-revision data-entrega-id="${datos.entrega_id}" data-pregunta-id="${pregunta.id}">
+                <label>Nota
+                  <input name="nota" type="number" min="0" max="10" step="0.1" required>
+                </label>
+                <label>Comentario
+                  <input name="comentario" type="text" maxlength="10000">
+                </label>
+                <button class="boton-principal" type="submit">Guardar revisión</button>
+              </form>
+            ` : ''}
+          </article>
+        `;
+      }).join('')}
+    </div>
+    <h3>Eventos y evidencias</h3>
+    ${datos.eventos_detalle.length ? datos.eventos_detalle.map((evento) => `
+      <p>${escaparHtml(evento.tipo)} · ${escaparHtml(evento.registrado_en || '')}
+        ${evento.evidencias.map((evidencia) => `<button class="boton-secundario" type="button" data-evidencia="${evidencia.id}">${escaparHtml(evidencia.nombre_archivo)}</button>`).join(' ')}
+      </p>
+    `).join('') : '<p class="muted">Sin eventos registrados.</p>'}
+  `;
+  detalleEntrega.classList.remove('hidden');
+  detalleEntrega.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderizarCatalogo(preguntas) {
@@ -278,13 +357,38 @@ function datosDelFormulario() {
   };
 }
 
+function filtrosEntregaActuales() {
+  return {
+    correo: filtrosEntregas?.elements.correo.value.trim() || '',
+    estado: filtrosEntregas?.elements.estado.value || '',
+  };
+}
+
 async function cargarEntregas() {
-  const response = await listarEntregasProfesor();
+  const response = await listarEntregasProfesor(filtrosEntregaActuales());
   if (!response.ok) {
     mensaje.textContent = response.error;
     return;
   }
   renderizarEntregas(response.datos);
+}
+
+async function cargarEstadisticas() {
+  const response = await obtenerEstadisticasProfesor();
+  if (!response.ok) {
+    mensaje.textContent = response.error;
+    return;
+  }
+  renderizarEstadisticas(response.datos);
+}
+
+async function cargarDetalleEntrega(entregaId) {
+  const response = await obtenerDetalleEntregaProfesor(entregaId);
+  if (!response.ok) {
+    mensaje.textContent = response.error;
+    return;
+  }
+  renderizarDetalle(response.datos);
 }
 
 async function cargarPreguntas() {
@@ -305,9 +409,15 @@ filtros?.addEventListener('submit', (event) => {
   cargarPreguntas();
 });
 
+filtrosEntregas?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  cargarEntregas();
+});
+
 document.getElementById('nueva-pregunta')?.addEventListener('click', () => abrirEditor());
 document.getElementById('cerrar-editor')?.addEventListener('click', () => editor.classList.add('hidden'));
 document.getElementById('anadir-caso')?.addEventListener('click', () => anadirCaso());
+document.getElementById('cerrar-detalle-entrega')?.addEventListener('click', () => detalleEntrega.classList.add('hidden'));
 
 listaCasos?.addEventListener('click', (event) => {
   const boton = event.target.closest('[data-eliminar-caso]');
@@ -391,7 +501,7 @@ contenedorCatalogo?.addEventListener('click', async (event) => {
 });
 
 descargar?.addEventListener('click', async () => {
-  const response = await exportarCsvProfesor();
+  const response = await exportarCsvProfesor(filtrosEntregaActuales());
   if (!response.ok) {
     mensaje.textContent = response.error;
     return;
@@ -406,6 +516,11 @@ descargar?.addEventListener('click', async () => {
 });
 
 contenedorEntregas?.addEventListener('click', async (event) => {
+  const botonDetalle = event.target.closest('[data-detalle-entrega]');
+  if (botonDetalle) {
+    await cargarDetalleEntrega(botonDetalle.dataset.detalleEntrega);
+    return;
+  }
   const boton = event.target.closest('[data-evidencia]');
   if (!boton) {
     return;
@@ -424,10 +539,51 @@ contenedorEntregas?.addEventListener('click', async (event) => {
   URL.revokeObjectURL(url);
 });
 
+contenidoDetalle?.addEventListener('submit', async (event) => {
+  const formularioRevision = event.target.closest('[data-form-revision]');
+  if (!formularioRevision) {
+    return;
+  }
+  event.preventDefault();
+  const response = await revisarRespuestaProfesor(
+    formularioRevision.dataset.entregaId,
+    formularioRevision.dataset.preguntaId,
+    Number(formularioRevision.elements.nota.value),
+    formularioRevision.elements.comentario.value.trim(),
+  );
+  if (!response.ok) {
+    mensaje.textContent = response.error;
+    return;
+  }
+  mensaje.textContent = `Revisión guardada. Nota global: ${response.datos.nota_global.toFixed(2)}.`;
+  await cargarDetalleEntrega(formularioRevision.dataset.entregaId);
+  await cargarEntregas();
+  await cargarEstadisticas();
+});
+
+contenidoDetalle?.addEventListener('click', async (event) => {
+  const boton = event.target.closest('[data-evidencia]');
+  if (!boton) {
+    return;
+  }
+  const response = await descargarEvidencia(boton.dataset.evidencia);
+  if (!response.ok) {
+    mensaje.textContent = response.error;
+    return;
+  }
+  const url = URL.createObjectURL(response.blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `evidencia-${boton.dataset.evidencia}.webm`;
+  link.click();
+  URL.revokeObjectURL(url);
+});
+
 if (!obtenerToken() || obtenerRol() !== 'profesor') {
   window.location.href = './index.html';
 } else {
   cargarConfiguracionExamen();
   cargarPreguntas();
   cargarEntregas();
+  cargarEstadisticas();
 }

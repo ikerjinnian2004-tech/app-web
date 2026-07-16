@@ -188,7 +188,31 @@
       <section class="panel panel-entregas" aria-labelledby="titulo-entregas">
         <p class="etiqueta-centro">Seguimiento</p>
         <h2 id="titulo-entregas">Entregas y evidencias</h2>
+        <div id="estadisticas-entregas" class="tarjetas-estadisticas" aria-live="polite"></div>
+        <form id="filtros-entregas" class="filtros filtros-entregas" aria-label="Filtros de entregas">
+          <label for="filtro-correo">Correo</label>
+          <input id="filtro-correo" name="correo" type="search" placeholder="ikerjinnian">
+          <label for="filtro-estado-entrega">Estado</label>
+          <select id="filtro-estado-entrega" name="estado">
+            <option value="">Todos</option>
+            <option value="abierta">Abierta</option>
+            <option value="pendiente">Revisión pendiente</option>
+            <option value="corregida">Corregida</option>
+          </select>
+          <button class="boton-secundario" type="submit">Aplicar</button>
+        </form>
         <div id="entregas" class="tabla-docente" tabindex="0"></div>
+      </section>
+
+      <section id="detalle-entrega" class="panel hidden" aria-labelledby="titulo-detalle-entrega">
+        <header class="cabecera-seccion">
+          <div>
+            <p class="etiqueta-centro">Informe trazable</p>
+            <h2 id="titulo-detalle-entrega">Detalle de entrega</h2>
+          </div>
+          <button id="cerrar-detalle-entrega" class="boton-secundario" type="button">Cerrar</button>
+        </header>
+        <div id="contenido-detalle-entrega"></div>
       </section>
     </div>
   </main>

@@ -427,6 +427,45 @@ pre {
   gap: 6px;
 }
 
+.tarjetas-estadisticas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.tarjeta-estadistica {
+  padding: 14px;
+  border: 1px solid var(--linea);
+  border-radius: 6px;
+  background: #fbfcff;
+}
+
+.tarjeta-estadistica strong {
+  display: block;
+  font-size: 1.6rem;
+}
+
+.detalle-preguntas {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.detalle-pregunta {
+  padding: 18px;
+  border: 1px solid var(--linea);
+  border-radius: var(--radio);
+}
+
+.formulario-revision {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 14px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -475,7 +514,9 @@ th {
 
   .filtros,
   .rejilla-campos,
-  .caso-prueba-editor {
+  .caso-prueba-editor,
+  .tarjetas-estadisticas,
+  .formulario-revision {
     grid-template-columns: 1fr;
   }
 

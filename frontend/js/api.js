@@ -50,12 +50,13 @@ export function acceder(rol, correoInstitucional) {
   });
 }
 
-export function iniciarExamen(consentimientoVersion, aceptaGrabacion) {
+export function iniciarExamen(consentimientoVersion, aceptaGrabacion, permisosVerificados) {
   return peticionApi('/examen/iniciar', {
     method: 'POST',
     body: JSON.stringify({
       consentimiento_version: consentimientoVersion,
       acepta_grabacion: aceptaGrabacion,
+      permisos_evidencia_verificados: permisosVerificados,
     }),
   });
 }
@@ -93,8 +94,33 @@ export function subirEvidencia(formData) {
   });
 }
 
-export function listarEntregasProfesor() {
-  return peticionApi('/profesor/entregas');
+function consultaProfesor(filtros = {}) {
+  const parametros = new URLSearchParams();
+  Object.entries(filtros).forEach(([clave, valor]) => {
+    if (valor !== undefined && valor !== null && valor !== '') {
+      parametros.set(clave, valor);
+    }
+  });
+  return parametros.size ? `?${parametros.toString()}` : '';
+}
+
+export function listarEntregasProfesor(filtros = {}) {
+  return peticionApi(`/profesor/entregas${consultaProfesor(filtros)}`);
+}
+
+export function obtenerDetalleEntregaProfesor(entregaId) {
+  return peticionApi(`/profesor/entregas/${entregaId}`);
+}
+
+export function obtenerEstadisticasProfesor() {
+  return peticionApi('/profesor/estadisticas');
+}
+
+export function revisarRespuestaProfesor(entregaId, preguntaId, nota, comentario) {
+  return peticionApi(`/profesor/entregas/${entregaId}/revisiones/${preguntaId}`, {
+    method: 'POST',
+    body: JSON.stringify({ nota, comentario }),
+  });
 }
 
 export function listarExamenesProfesor() {
@@ -145,8 +171,8 @@ export function actualizarEstadoPreguntaProfesor(preguntaId, estado) {
   });
 }
 
-export function exportarCsvProfesor() {
-  return peticionApi('/profesor/exportar');
+export function exportarCsvProfesor(filtros = {}) {
+  return peticionApi(`/profesor/exportar${consultaProfesor(filtros)}`);
 }
 
 export async function descargarEvidencia(evidenciaId) {
