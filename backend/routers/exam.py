@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -83,6 +83,10 @@ def response_from_entrega(entrega: Entrega) -> ExamenResponse:
         titulo=entrega.examen.titulo,
         duracion_segundos=entrega.examen.duracion_segundos,
         hora_inicio_servidor=to_public_utc(entrega.hora_inicio),
+        hora_actual_servidor=to_public_utc(utc_now_naive()),
+        hora_limite_servidor=to_public_utc(
+            entrega.hora_inicio + timedelta(seconds=entrega.examen.duracion_segundos)
+        ),
         preguntas=preguntas,
     )
 

@@ -1,10 +1,12 @@
 import json
 import random
+from datetime import timedelta
 
 from sqlalchemy import select
 
 from backend.crud import seleccionar_preguntas
 from backend.models import Examen, Pregunta, PreguntaAsignada
+from backend.models import utc_now
 from tests.conftest import acceder_alumno
 
 
@@ -179,3 +181,62 @@ def test_seleccion_aleatoria_respeta_cantidad_y_publicacion() -> None:
     assert sum(pregunta.tipo == "rellenar_huecos" for pregunta in elegidas) == 2
     assert sum(pregunta.tipo == "tipo_test" for pregunta in elegidas) == 1
     assert all(pregunta.estado == "publicada" for pregunta in elegidas)
+
+
+def test_reintento_de_envio_devuelve_la_calificacion_existente(
+    client, examen_activo
+) -> None:
+    headers = acceder_alumno(client)
+    examen = iniciar_examen(client, headers)
+    datos = {
+        "entrega_id": examen["entrega_id"],
+        "respuestas": respuestas_correctas(examen["preguntas"]),
+    }
+
+    primero = client.post("/entregas/enviar", headers=headers, json=datos)
+    segundo = client.post("/entregas/enviar", headers=headers, json=datos)
+
+    assert primero.status_code == 200
+    assert segundo.status_code == 200
+    assert segundo.json() == primero.json()
+
+
+def test_examen_fuera_de_ventana_no_puede_iniciarse(
+    client, examen_activo, db_session
+) -> None:
+    examen_activo.apertura_en = utc_now() + timedelta(hours=1)
+    db_session.commit()
+    headers = acceder_alumno(client)
+    consentimiento = client.get("/consentimiento").json()
+
+    response = client.post(
+        "/examen/iniciar",
+        headers=headers,
+        json={
+            "consentimiento_version": consentimiento["version"],
+            "acepta_grabacion": True,
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_respuesta_incluye_reloj_y_trazabilidad_de_calculo(
+    client, examen_activo
+) -> None:
+    headers = acceder_alumno(client)
+    examen = iniciar_examen(client, headers)
+    assert examen["hora_actual_servidor"].endswith("Z")
+    assert examen["hora_limite_servidor"].endswith("Z")
+
+    envio = client.post(
+        "/entregas/enviar",
+        headers=headers,
+        json={
+            "entrega_id": examen["entrega_id"],
+            "respuestas": respuestas_correctas(examen["preguntas"]),
+        },
+    )
+    assert envio.status_code == 200
+    assert all(item["peso"] > 0 for item in envio.json()["desglose"])
+    assert all(item["version_pregunta"] == 1 for item in envio.json()["desglose"])

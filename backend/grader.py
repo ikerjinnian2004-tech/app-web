@@ -30,6 +30,7 @@ class ResultadoPregunta:
     tests_ok: int | None = None
     tests_total: int | None = None
     error_type: str | None = None
+    casos: list[dict[str, object]] | None = None
 
     def to_public_dict(self) -> dict[str, object]:
         return {
@@ -40,6 +41,7 @@ class ResultadoPregunta:
             "tests_ok": self.tests_ok,
             "tests_total": self.tests_total,
             "error_type": self.error_type,
+            "casos": self.casos,
         }
 
 
@@ -148,6 +150,7 @@ def grade_code_answer(
     question: Pregunta,
     answer: str,
     test_cases: list[CasoPrueba],
+    modo_calificacion: str = "parcial_por_tests",
 ) -> ResultadoPregunta:
     if not test_cases:
         return build_error_result(question, test_cases, "NO_TESTS")
@@ -201,8 +204,14 @@ def grade_code_answer(
     passed_weight = 0.0
     first_error: str | None = None
     tests_ok = 0
+    resultados_casos: list[dict[str, object]] = []
 
-    for test_case, result in zip(test_cases, parsed_results, strict=False):
+    for indice, test_case in enumerate(test_cases):
+        result = (
+            parsed_results[indice]
+            if indice < len(parsed_results)
+            else {"stdout": "", "stderr": "Caso no ejecutado", "returncode": 1}
+        )
         case_stdout = str(result.get("stdout", ""))
         case_stderr = str(result.get("stderr", ""))
         returncode = int(result.get("returncode", 1))
@@ -223,15 +232,34 @@ def grade_code_answer(
             tests_ok += 1
         elif first_error is None:
             first_error = error_type
+        resultados_casos.append(
+            {
+                "caso_id": test_case.id,
+                "descripcion": test_case.descripcion,
+                "visible": test_case.visible,
+                "correcto": passed,
+                "error_type": None if passed else error_type,
+            }
+        )
+
+    nota_parcial = (passed_weight / total_weight) * 10
+    nota = (
+        10.0
+        if tests_ok == len(test_cases)
+        else 0.0
+        if modo_calificacion == "todo_o_nada_por_pregunta"
+        else nota_parcial
+    )
 
     return ResultadoPregunta(
         pregunta_id=question.id,
         tipo=question.tipo,
         estado="corregida",
-        nota=round((passed_weight / total_weight) * 10, 2),
+        nota=round(nota, 2),
         tests_ok=tests_ok,
         tests_total=len(test_cases),
         error_type=first_error,
+        casos=resultados_casos,
     )
 
 
@@ -262,9 +290,15 @@ def grade_answer(
     question: Pregunta,
     answer: str,
     test_cases: list[CasoPrueba],
+    modo_calificacion: str = "parcial_por_tests",
 ) -> ResultadoPregunta:
     if question.tipo in {"rellenar_huecos", "corregir_codigo"}:
-        return grade_code_answer(question, answer, test_cases)
+        return grade_code_answer(
+            question,
+            answer,
+            test_cases,
+            modo_calificacion=modo_calificacion,
+        )
     if question.tipo == "tipo_test":
         return grade_multiple_choice_answer(question, answer)
     return mark_for_manual_review(question)
@@ -274,6 +308,8 @@ def grade_entrega(
     respuestas_alumno: list[RespuestaAlumno],
     preguntas: list[Pregunta],
     casos_por_pregunta: dict[int, list[CasoPrueba]],
+    pesos_por_pregunta: dict[int, float] | None = None,
+    modo_calificacion: str = "parcial_por_tests",
 ) -> dict[str, object]:
     answers_by_question = {
         respuesta.pregunta_id: respuesta.contenido for respuesta in respuestas_alumno
@@ -288,20 +324,31 @@ def grade_entrega(
             question,
             answers_by_question.get(question.id, ""),
             casos_por_pregunta.get(question.id, []),
+            modo_calificacion=modo_calificacion,
         )
-        breakdown.append(result.to_public_dict())
+        weight = float((pesos_por_pregunta or {}).get(question.id, question.peso))
+        result_dict = result.to_public_dict()
+        result_dict["peso"] = weight
+        result_dict["version_pregunta"] = question.version
 
         if result.estado == "pendiente_revision":
             pending_reviews += 1
+            result_dict["contribucion"] = None
+            breakdown.append(result_dict)
             continue
 
-        weight = float(question.peso)
         total_weight += weight
-        weighted_score += float(result.nota or 0.0) * weight
+        contribution = float(result.nota or 0.0) * weight
+        weighted_score += contribution
+        result_dict["contribucion"] = round(contribution, 2)
+        breakdown.append(result_dict)
 
     nota_global = round(weighted_score / total_weight, 2) if total_weight else 0.0
     return {
         "nota_global": nota_global,
         "preguntas_pendientes": pending_reviews,
         "desglose": breakdown,
+        "peso_evaluado": round(total_weight, 2),
+        "suma_ponderada": round(weighted_score, 2),
+        "modo_calificacion": modo_calificacion,
     }

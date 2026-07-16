@@ -12,6 +12,9 @@ const contador = document.getElementById('contador-respuestas');
 const aviso = document.getElementById('aviso-auditoria');
 let enviando = false;
 let intervalo = null;
+const desfaseServidorMs = examen
+  ? Date.parse(examen.hora_actual_servidor) - Date.now()
+  : 0;
 
 function escapeHtml(texto) {
   return String(texto)
@@ -48,13 +51,15 @@ function controlRespuesta(pregunta) {
       <textarea
         id="pregunta-${pregunta.id}-hueco-${indice}"
         data-hueco-indice="${indice}"
+        ${pregunta.limites_caracteres?.[indice] ? `maxlength="${pregunta.limites_caracteres[indice]}"` : ''}
       ></textarea>
     `).join('');
     return `<div data-pregunta-multiple="${pregunta.id}">${controles}</div>`;
   }
 
   const valorInicial = pregunta.tipo === 'corregir_codigo' ? pregunta.codigo_plantilla || '' : '';
-  return `<textarea name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}">${escapeHtml(valorInicial)}</textarea>`;
+  const limite = pregunta.limites_caracteres?.[0];
+  return `<textarea name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}" ${limite ? `maxlength="${limite}"` : ''}>${escapeHtml(valorInicial)}</textarea>`;
 }
 
 function renderizarPregunta(pregunta) {
@@ -120,8 +125,9 @@ async function enviar(automatico = false) {
 }
 
 function actualizarTiempo() {
-  const fin = Date.parse(examen.hora_inicio_servidor) + examen.duracion_segundos * 1000;
-  const restante = Math.max(0, Math.floor((fin - Date.now()) / 1000));
+  const fin = Date.parse(examen.hora_limite_servidor);
+  const ahoraServidor = Date.now() + desfaseServidorMs;
+  const restante = Math.max(0, Math.ceil((fin - ahoraServidor) / 1000));
   const minutos = String(Math.floor(restante / 60)).padStart(2, '0');
   const segundos = String(restante % 60).padStart(2, '0');
   tiempoRestante.textContent = `${minutos}:${segundos}`;

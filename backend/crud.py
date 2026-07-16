@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -55,9 +55,15 @@ def obtener_o_crear_usuario_permitido(
 
 
 def get_examen_activo(db: Session) -> Examen | None:
+    ahora = datetime.now(UTC).replace(tzinfo=None)
     resultado = db.execute(
         select(Examen)
-        .where(Examen.activo.is_(True), Examen.estado == "publicado")
+        .where(
+            Examen.activo.is_(True),
+            Examen.estado == "publicado",
+            or_(Examen.apertura_en.is_(None), Examen.apertura_en <= ahora),
+            or_(Examen.cierre_en.is_(None), Examen.cierre_en >= ahora),
+        )
         .options(joinedload(Examen.preguntas).joinedload(Pregunta.casos_prueba))
         .order_by(Examen.id.desc())
     )

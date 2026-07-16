@@ -61,6 +61,8 @@ class ExamenResponse(BaseModel):
     titulo: str
     duracion_segundos: int
     hora_inicio_servidor: str
+    hora_actual_servidor: str
+    hora_limite_servidor: str
     preguntas: list[PreguntaExamen]
 
 
@@ -83,6 +85,9 @@ class DesglosePregunta(BaseModel):
     tests_ok: int | None = None
     tests_total: int | None = None
     error_type: str | None = None
+    peso: float
+    contribucion: float | None
+    version_pregunta: int
 
 
 class SubmissionResponse(BaseModel):

@@ -21,6 +21,7 @@ from backend.schemas import SubmissionCreate, SubmissionResponse
 from backend.security import exigir_rol
 
 router = APIRouter()
+MARGEN_ENVIO_AUTOMATICO_SEGUNDOS = 10
 
 
 def utc_now_naive() -> datetime:
@@ -28,11 +29,19 @@ def utc_now_naive() -> datetime:
 
 
 def response_from_calificacion(entrega_id: int, calificacion) -> SubmissionResponse:
+    desglose = json.loads(calificacion.desglose_json)
+    for item in desglose:
+        item.setdefault("peso", 1.0)
+        item.setdefault(
+            "contribucion",
+            None if item.get("nota") is None else float(item["nota"]),
+        )
+        item.setdefault("version_pregunta", 1)
     return SubmissionResponse(
         entrega_id=entrega_id,
         nota_global=calificacion.nota_global,
         preguntas_pendientes=calificacion.preguntas_pendientes,
-        desglose=json.loads(calificacion.desglose_json),
+        desglose=desglose,
     )
 
 
@@ -48,10 +57,16 @@ def enviar_entrega(
     if entrega.alumno_id != alumno.id:
         raise forbidden("No puedes enviar la entrega de otro alumno.")
     if entrega.cerrada:
+        if entrega.calificacion is not None:
+            return response_from_calificacion(entrega.id, entrega.calificacion)
         raise conflict("La entrega ya está cerrada.")
 
     limite = entrega.hora_inicio + timedelta(seconds=entrega.examen.duracion_segundos)
-    if utc_now_naive() > limite:
+    ahora = utc_now_naive()
+    if ahora > limite and not (
+        request.entregado_automaticamente
+        and ahora <= limite + timedelta(seconds=MARGEN_ENVIO_AUTOMATICO_SEGUNDOS)
+    ):
         raise request_timeout(
             "El servidor ha marcado esta entrega como fuera de tiempo."
         )
@@ -67,7 +82,17 @@ def enviar_entrega(
         )
     respuestas_guardadas = guardar_respuestas(db, entrega, respuestas)
     preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.id)
-    resultado = grade_entrega(respuestas_guardadas, preguntas, casos_por_pregunta)
+    pesos_por_pregunta = {
+        asignacion.pregunta_id: asignacion.peso
+        for asignacion in entrega.preguntas_asignadas
+    }
+    resultado = grade_entrega(
+        respuestas_guardadas,
+        preguntas,
+        casos_por_pregunta,
+        pesos_por_pregunta=pesos_por_pregunta,
+        modo_calificacion=entrega.examen.modo_calificacion,
+    )
     calificacion = guardar_calificacion(
         db,
         entrega_id=entrega.id,
