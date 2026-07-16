@@ -375,6 +375,17 @@ pre {
   grid-column: span 2;
 }
 
+.sin-margen {
+  margin-bottom: 0;
+}
+
+.acciones-formulario {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
 .formulario-docente {
   max-width: 920px;
 }

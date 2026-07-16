@@ -4,7 +4,10 @@ import {
   descargarEvidencia,
   exportarCsvProfesor,
   listarEntregasProfesor,
+  listarExamenesProfesor,
   listarPreguntasProfesor,
+  listarVersionesExamenProfesor,
+  versionarExamenProfesor,
   versionarPreguntaProfesor,
 } from './api.js';
 import { obtenerRol, obtenerToken } from './sesion.js';
@@ -18,6 +21,9 @@ const editor = document.getElementById('editor-pregunta');
 const formulario = document.getElementById('formulario-pregunta');
 const tituloEditor = document.getElementById('titulo-editor');
 const listaCasos = document.getElementById('lista-casos-prueba');
+const formularioConfiguracion = document.getElementById('formulario-configuracion');
+const versionExamen = document.getElementById('version-examen');
+const historialExamen = document.getElementById('historial-examen');
 let preguntasActuales = [];
 
 function escaparHtml(valor) {
@@ -36,6 +42,55 @@ function etiquetaTipo(tipo) {
     tipo_test: 'Tipo test',
     respuesta_corta: 'Respuesta corta',
   }[tipo] || tipo;
+}
+
+function fechaParaControl(iso) {
+  if (!iso) {
+    return '';
+  }
+  const fecha = new Date(iso);
+  const local = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fechaParaApi(valor) {
+  return valor ? new Date(valor).toISOString() : null;
+}
+
+function mostrarConfiguracion(examen) {
+  formularioConfiguracion.elements.examen_id.value = examen.id;
+  formularioConfiguracion.elements.titulo.value = examen.titulo;
+  formularioConfiguracion.elements.descripcion.value = examen.descripcion;
+  formularioConfiguracion.elements.duracion_minutos.value = examen.duracion_segundos / 60;
+  formularioConfiguracion.elements.estado.value = examen.estado;
+  formularioConfiguracion.elements.modo_calificacion.value = examen.modo_calificacion;
+  formularioConfiguracion.elements.apertura_en.value = fechaParaControl(examen.apertura_en);
+  formularioConfiguracion.elements.cierre_en.value = fechaParaControl(examen.cierre_en);
+  const seleccion = examen.seleccion_por_tipo || {};
+  formularioConfiguracion.elements.cantidad_rellenar_huecos.value = seleccion.rellenar_huecos || 0;
+  formularioConfiguracion.elements.cantidad_corregir_codigo.value = seleccion.corregir_codigo || 0;
+  formularioConfiguracion.elements.cantidad_tipo_test.value = seleccion.tipo_test || 0;
+  formularioConfiguracion.elements.cantidad_respuesta_corta.value = seleccion.respuesta_corta || 0;
+  versionExamen.textContent = `Versión ${examen.version}`;
+}
+
+async function cargarHistorialExamen(examenId) {
+  const response = await listarVersionesExamenProfesor(examenId);
+  if (!response.ok) {
+    historialExamen.textContent = response.error;
+    return;
+  }
+  historialExamen.textContent = `${response.datos.length} versiones conservadas`;
+}
+
+async function cargarConfiguracionExamen() {
+  const response = await listarExamenesProfesor();
+  if (!response.ok || !response.datos.length) {
+    mensaje.textContent = response.error || 'No hay ningún examen configurado.';
+    return;
+  }
+  mostrarConfiguracion(response.datos[0]);
+  await cargarHistorialExamen(response.datos[0].id);
 }
 
 function enlacesEvidencias(eventos) {
@@ -281,6 +336,35 @@ formulario?.addEventListener('submit', async (event) => {
   await cargarPreguntas();
 });
 
+formularioConfiguracion?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  mensaje.textContent = '';
+  const examenId = Number(formularioConfiguracion.elements.examen_id.value);
+  const datos = {
+    titulo: formularioConfiguracion.elements.titulo.value.trim(),
+    descripcion: formularioConfiguracion.elements.descripcion.value.trim(),
+    duracion_segundos: Math.round(Number(formularioConfiguracion.elements.duracion_minutos.value) * 60),
+    estado: formularioConfiguracion.elements.estado.value,
+    modo_calificacion: formularioConfiguracion.elements.modo_calificacion.value,
+    seleccion_por_tipo: {
+      rellenar_huecos: Number(formularioConfiguracion.elements.cantidad_rellenar_huecos.value),
+      corregir_codigo: Number(formularioConfiguracion.elements.cantidad_corregir_codigo.value),
+      tipo_test: Number(formularioConfiguracion.elements.cantidad_tipo_test.value),
+      respuesta_corta: Number(formularioConfiguracion.elements.cantidad_respuesta_corta.value),
+    },
+    apertura_en: fechaParaApi(formularioConfiguracion.elements.apertura_en.value),
+    cierre_en: fechaParaApi(formularioConfiguracion.elements.cierre_en.value),
+  };
+  const response = await versionarExamenProfesor(examenId, datos);
+  if (!response.ok) {
+    mensaje.textContent = response.error;
+    return;
+  }
+  mostrarConfiguracion(response.datos);
+  await cargarHistorialExamen(examenId);
+  mensaje.textContent = `Configuración v${response.datos.version} guardada.`;
+});
+
 contenedorCatalogo?.addEventListener('click', async (event) => {
   const botonEditar = event.target.closest('[data-editar]');
   if (botonEditar) {
@@ -343,6 +427,7 @@ contenedorEntregas?.addEventListener('click', async (event) => {
 if (!obtenerToken() || obtenerRol() !== 'profesor') {
   window.location.href = './index.html';
 } else {
+  cargarConfiguracionExamen();
   cargarPreguntas();
   cargarEntregas();
 }

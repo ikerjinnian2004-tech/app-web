@@ -97,6 +97,21 @@ export function listarEntregasProfesor() {
   return peticionApi('/profesor/entregas');
 }
 
+export function listarExamenesProfesor() {
+  return peticionApi('/profesor/examenes');
+}
+
+export function listarVersionesExamenProfesor(examenId) {
+  return peticionApi(`/profesor/examenes/${examenId}/versiones`);
+}
+
+export function versionarExamenProfesor(examenId, datos) {
+  return peticionApi(`/profesor/examenes/${examenId}/versiones`, {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
 export function listarPreguntasProfesor(filtros = {}) {
   const parametros = new URLSearchParams();
   if (filtros.tipo) {

@@ -19,6 +19,70 @@
   <main class="contenedor-ancho">
     <p id="mensaje-profesor" class="mensaje" aria-live="polite"></p>
     <div class="rejilla-panel-docente">
+      <section class="panel" aria-labelledby="titulo-configuracion">
+        <header class="cabecera-seccion">
+          <div>
+            <p class="etiqueta-centro">Reglas e intentos</p>
+            <h2 id="titulo-configuracion">Configuración del examen</h2>
+          </div>
+          <span id="version-examen" class="estado-ok">Versión —</span>
+        </header>
+        <form id="formulario-configuracion" class="formulario formulario-docente" novalidate>
+          <input name="examen_id" type="hidden">
+          <div class="rejilla-campos">
+            <label>Título
+              <input name="titulo" type="text" maxlength="200" required>
+            </label>
+            <label>Duración (minutos)
+              <input name="duracion_minutos" type="number" min="1" max="480" required>
+            </label>
+            <label>Estado
+              <select name="estado">
+                <option value="borrador">Borrador</option>
+                <option value="publicado">Publicado</option>
+                <option value="archivado">Archivado</option>
+              </select>
+            </label>
+            <label>Calificación de código
+              <select name="modo_calificacion">
+                <option value="todo_o_nada_por_pregunta">Todo o nada por pregunta</option>
+                <option value="parcial_por_tests">Parcial según casos superados</option>
+              </select>
+            </label>
+            <label>Apertura (opcional)
+              <input name="apertura_en" type="datetime-local">
+            </label>
+            <label>Cierre (opcional)
+              <input name="cierre_en" type="datetime-local">
+            </label>
+          </div>
+          <label>Descripción
+            <textarea name="descripcion" class="textarea-compacta" maxlength="20000"></textarea>
+          </label>
+          <fieldset class="casos-prueba">
+            <legend>Preguntas aleatorias por tipo</legend>
+            <div class="rejilla-campos sin-margen">
+              <label>Rellenar huecos
+                <input name="cantidad_rellenar_huecos" type="number" min="0" value="0">
+              </label>
+              <label>Corregir código
+                <input name="cantidad_corregir_codigo" type="number" min="0" value="0">
+              </label>
+              <label>Tipo test
+                <input name="cantidad_tipo_test" type="number" min="0" value="0">
+              </label>
+              <label>Respuesta corta
+                <input name="cantidad_respuesta_corta" type="number" min="0" value="0">
+              </label>
+            </div>
+          </fieldset>
+          <div class="acciones-formulario">
+            <button class="boton-principal" type="submit">Publicar nueva versión</button>
+            <span id="historial-examen" class="muted"></span>
+          </div>
+        </form>
+      </section>
+
       <section class="panel panel-catalogo" aria-labelledby="titulo-catalogo">
         <header class="cabecera-seccion">
           <div>
