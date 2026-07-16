@@ -87,7 +87,10 @@ async function cargarHistorialExamen(examenId) {
     historialExamen.textContent = response.error;
     return;
   }
-  historialExamen.textContent = `${response.datos.length} versiones conservadas`;
+  const cantidad = response.datos.length;
+  historialExamen.textContent = cantidad === 1
+    ? '1 versión conservada'
+    : `${cantidad} versiones conservadas`;
 }
 
 async function cargarConfiguracionExamen() {

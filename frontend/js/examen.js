@@ -31,7 +31,7 @@ function mostrarAviso(texto) {
 function etiquetaTipo(tipo) {
   return {
     rellenar_huecos: 'Rellenar huecos',
-    corregir_codigo: 'Corregir codigo',
+    corregir_codigo: 'Corregir código',
     tipo_test: 'Tipo test',
     respuesta_corta: 'Respuesta corta',
   }[tipo];
@@ -42,7 +42,7 @@ function controlRespuesta(pregunta) {
     const opciones = (pregunta.opciones || [])
       .map((opcion) => `<option value="${escapeHtml(opcion)}">${escapeHtml(opcion)}</option>`)
       .join('');
-    return `<select name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}">${opciones}</select>`;
+    return `<select id="pregunta-${pregunta.id}" name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}" required><option value="">Selecciona una opción</option>${opciones}</select>`;
   }
 
   if (pregunta.tipo === 'rellenar_huecos' && pregunta.numero_huecos > 1) {
@@ -51,6 +51,7 @@ function controlRespuesta(pregunta) {
       <textarea
         id="pregunta-${pregunta.id}-hueco-${indice}"
         data-hueco-indice="${indice}"
+        required
         ${pregunta.limites_caracteres?.[indice] ? `maxlength="${pregunta.limites_caracteres[indice]}"` : ''}
       ></textarea>
     `).join('');
@@ -59,13 +60,16 @@ function controlRespuesta(pregunta) {
 
   const valorInicial = pregunta.tipo === 'corregir_codigo' ? pregunta.codigo_plantilla || '' : '';
   const limite = pregunta.limites_caracteres?.[0];
-  return `<textarea name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}" ${limite ? `maxlength="${limite}"` : ''}>${escapeHtml(valorInicial)}</textarea>`;
+  return `<textarea id="pregunta-${pregunta.id}" name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}" required ${limite ? `maxlength="${limite}"` : ''}>${escapeHtml(valorInicial)}</textarea>`;
 }
 
 function renderizarPregunta(pregunta) {
   const plantilla = pregunta.codigo_plantilla
     ? `<pre>${escapeHtml(pregunta.codigo_plantilla)}</pre>`
     : '';
+  const etiquetaRespuesta = pregunta.tipo === 'rellenar_huecos' && pregunta.numero_huecos > 1
+    ? '<p><strong>Respuesta</strong></p>'
+    : `<label for="pregunta-${pregunta.id}">Respuesta</label>`;
   return `
     <article class="pregunta">
       <header>
@@ -76,7 +80,7 @@ function renderizarPregunta(pregunta) {
       </header>
       <p>${escapeHtml(pregunta.enunciado)}</p>
       ${plantilla}
-      <label for="pregunta-${pregunta.id}">Respuesta</label>
+      ${etiquetaRespuesta}
       ${controlRespuesta(pregunta)}
     </article>
   `;
@@ -89,7 +93,7 @@ function actualizarContador() {
     .filter((grupo) => [...grupo.querySelectorAll('textarea')]
       .some((control) => String(control.value || '').trim().length > 0)).length;
   const respondidas = simples + multiples;
-  contador.textContent = `${respondidas} respuestas`;
+  contador.textContent = respondidas === 1 ? '1 respuesta' : `${respondidas} respuestas`;
 }
 
 function recopilarRespuestas() {
