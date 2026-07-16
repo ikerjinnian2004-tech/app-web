@@ -30,7 +30,10 @@ from backend.schemas import (
     CalificacionDocente,
     ConfiguracionExamenActualizar,
     DefinicionPreguntaDocente,
+    EntregaDetalleProfesor,
     EntregaProfesor,
+    EstadisticasProfesor,
+    EstadoEntregaFiltro,
     EstadoPregunta,
     EstadoPreguntaActualizar,
     EventoProfesor,
@@ -574,12 +577,150 @@ def entrega_profesor(entrega: Entrega) -> EntregaProfesor:
     )
 
 
+def entrega_detallada(entrega: Entrega) -> EntregaDetalleProfesor:
+    resumen = entrega_profesor(entrega)
+    respuestas = {
+        respuesta.pregunta_id: respuesta.contenido
+        for respuesta in entrega.respuestas_alumno
+    }
+    revisiones = {
+        revision.pregunta_id: revision for revision in entrega.revisiones_manuales
+    }
+    preguntas = []
+    for asignacion in entrega.preguntas_asignadas:
+        pregunta = asignacion.pregunta
+        revision = revisiones.get(pregunta.id)
+        preguntas.append(
+            {
+                "id": pregunta.id,
+                "clave": pregunta.clave,
+                "version": asignacion.version_pregunta,
+                "orden": asignacion.orden,
+                "peso": asignacion.peso,
+                "tipo": pregunta.tipo,
+                "titulo": pregunta.titulo,
+                "enunciado": pregunta.enunciado,
+                "respuesta": respuestas.get(pregunta.id, ""),
+                "casos_prueba": [
+                    {
+                        "id": caso.id,
+                        "descripcion": caso.descripcion,
+                        "codigo_test": caso.codigo_test,
+                        "salida_esperada": caso.salida_esperada,
+                        "peso": caso.peso,
+                        "visible": caso.visible,
+                    }
+                    for caso in pregunta.casos_prueba
+                ],
+                "revision_manual": (
+                    {
+                        "nota": revision.nota,
+                        "comentario": revision.comentario,
+                        "profesor_id": revision.profesor_id,
+                        "revisada_en": fecha_publica(revision.revisada_en),
+                    }
+                    if revision is not None
+                    else None
+                ),
+            }
+        )
+    eventos_detalle = [
+        {
+            "id": evento.id,
+            "tipo": evento.tipo,
+            "timestamp_cliente": evento.timestamp_cliente,
+            "registrado_en": fecha_publica(evento.registrado_en),
+            "metadata": json.loads(evento.metadata_json),
+            "evidencias": [
+                {
+                    "id": evidencia.id,
+                    "tipo": evidencia.tipo,
+                    "mime_type": evidencia.mime_type,
+                    "nombre_archivo": evidencia.nombre_archivo,
+                    "tamano_bytes": evidencia.tamano_bytes,
+                }
+                for evidencia in evento.evidencias
+            ],
+        }
+        for evento in entrega.eventos
+    ]
+    return EntregaDetalleProfesor(
+        **resumen.model_dump(),
+        examen_id=entrega.examen_id,
+        version_examen=entrega.version_examen,
+        modo_calificacion=entrega.modo_calificacion,
+        entregado_automaticamente=entrega.entregado_automaticamente,
+        consentimiento_version=entrega.consentimiento_version,
+        preguntas=preguntas,
+        desglose=(
+            json.loads(entrega.calificacion.desglose_json)
+            if entrega.calificacion is not None
+            else []
+        ),
+        eventos_detalle=eventos_detalle,
+    )
+
+
 @router.get("/entregas", response_model=list[EntregaProfesor])
 def listar_entregas(
+    correo: str | None = None,
+    estado: EstadoEntregaFiltro | None = None,
+    examen_id: int | None = None,
+    desde: datetime | None = None,
+    hasta: datetime | None = None,
     _: UsuarioPermitido = Depends(exigir_rol("profesor")),
     db: Session = Depends(get_db),
 ) -> list[EntregaProfesor]:
-    return [entrega_profesor(entrega) for entrega in listar_entregas_para_profesor(db)]
+    entregas = listar_entregas_para_profesor(
+        db,
+        correo=correo,
+        estado=estado,
+        examen_id=examen_id,
+        desde=_fecha_utc_naive(desde),
+        hasta=_fecha_utc_naive(hasta),
+    )
+    return [entrega_profesor(entrega) for entrega in entregas]
+
+
+@router.get("/entregas/{entrega_id}", response_model=EntregaDetalleProfesor)
+def obtener_detalle_entrega(
+    entrega_id: int,
+    _: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> EntregaDetalleProfesor:
+    entrega = get_entrega(db, entrega_id)
+    if entrega is None:
+        raise not_found("La entrega solicitada no existe.")
+    return entrega_detallada(entrega)
+
+
+@router.get("/estadisticas", response_model=EstadisticasProfesor)
+def obtener_estadisticas(
+    _: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> EstadisticasProfesor:
+    entregas = listar_entregas_para_profesor(db)
+    notas = [
+        entrega.calificacion.nota_global
+        for entrega in entregas
+        if entrega.calificacion is not None
+    ]
+    return EstadisticasProfesor(
+        total_entregas=len(entregas),
+        abiertas=sum(not entrega.cerrada for entrega in entregas),
+        corregidas=sum(
+            entrega.cerrada
+            and entrega.calificacion is not None
+            and entrega.calificacion.preguntas_pendientes == 0
+            for entrega in entregas
+        ),
+        pendientes_revision=sum(
+            entrega.calificacion is not None
+            and entrega.calificacion.preguntas_pendientes > 0
+            for entrega in entregas
+        ),
+        nota_media=round(sum(notas) / len(notas), 2) if notas else None,
+    )
 
 
 @router.get("/evidencias/{evidencia_id}")
@@ -602,6 +743,9 @@ def descargar_evidencia(
 
 @router.get("/exportar")
 def exportar_csv(
+    correo: str | None = None,
+    estado: EstadoEntregaFiltro | None = None,
+    examen_id: int | None = None,
     _: UsuarioPermitido = Depends(exigir_rol("profesor")),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
@@ -613,15 +757,20 @@ def exportar_csv(
             "alumno",
             "correo",
             "examen",
+            "version_examen",
+            "modo_calificacion",
             "nota_global",
             "preguntas_pendientes",
             "cerrada",
             "eventos",
             "evidencias",
+            "entrega_automatica",
         ]
     )
 
-    for entrega in listar_entregas_para_profesor(db):
+    for entrega in listar_entregas_para_profesor(
+        db, correo=correo, estado=estado, examen_id=examen_id
+    ):
         eventos = "|".join(evento.tipo for evento in entrega.eventos)
         evidencias = sum(len(evento.evidencias) for evento in entrega.eventos)
         writer.writerow(
@@ -630,6 +779,8 @@ def exportar_csv(
                 f"{entrega.alumno.nombre} {entrega.alumno.apellidos}".strip(),
                 entrega.alumno.correo,
                 entrega.titulo_examen or entrega.examen.titulo,
+                entrega.version_examen,
+                entrega.modo_calificacion,
                 entrega.calificacion.nota_global if entrega.calificacion else "",
                 entrega.calificacion.preguntas_pendientes
                 if entrega.calificacion
@@ -637,6 +788,7 @@ def exportar_csv(
                 entrega.cerrada,
                 eventos,
                 evidencias,
+                entrega.entregado_automaticamente,
             ]
         )
 

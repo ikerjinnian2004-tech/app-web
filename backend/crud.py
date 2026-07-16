@@ -329,16 +329,49 @@ def obtener_evidencia(db: Session, evidencia_id: int) -> EvidenciaAuditoria | No
     return db.get(EvidenciaAuditoria, evidencia_id)
 
 
-def listar_entregas_para_profesor(db: Session) -> list[Entrega]:
+def listar_entregas_para_profesor(
+    db: Session,
+    correo: str | None = None,
+    estado: str | None = None,
+    examen_id: int | None = None,
+    desde: datetime | None = None,
+    hasta: datetime | None = None,
+) -> list[Entrega]:
+    consulta = select(Entrega)
+    if correo:
+        consulta = consulta.where(
+            Entrega.alumno.has(UsuarioPermitido.correo.contains(correo.strip().lower()))
+        )
+    if examen_id is not None:
+        consulta = consulta.where(Entrega.examen_id == examen_id)
+    if desde is not None:
+        consulta = consulta.where(Entrega.hora_inicio >= desde)
+    if hasta is not None:
+        consulta = consulta.where(Entrega.hora_inicio <= hasta)
+    if estado == "abierta":
+        consulta = consulta.where(Entrega.cerrada.is_(False))
+    elif estado == "pendiente":
+        consulta = consulta.where(
+            Entrega.calificacion.has(Calificacion.preguntas_pendientes > 0)
+        )
+    elif estado == "corregida":
+        consulta = consulta.where(
+            Entrega.cerrada.is_(True),
+            Entrega.calificacion.has(Calificacion.preguntas_pendientes == 0),
+        )
+
     resultado = db.execute(
-        select(Entrega)
-        .options(
+        consulta.options(
             joinedload(Entrega.alumno),
             joinedload(Entrega.examen),
             joinedload(Entrega.calificacion),
             joinedload(Entrega.eventos).joinedload(EventoAuditoria.evidencias),
-        )
-        .order_by(Entrega.hora_inicio.desc())
+            joinedload(Entrega.preguntas_asignadas)
+            .joinedload(PreguntaAsignada.pregunta)
+            .joinedload(Pregunta.casos_prueba),
+            joinedload(Entrega.respuestas_alumno),
+            joinedload(Entrega.revisiones_manuales),
+        ).order_by(Entrega.hora_inicio.desc())
     )
     return list(resultado.unique().scalars().all())
 

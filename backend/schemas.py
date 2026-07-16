@@ -10,6 +10,7 @@ RolUsuario = Literal["alumno", "profesor"]
 EstadoPregunta = Literal["borrador", "publicada", "retirada"]
 EstadoExamen = Literal["borrador", "publicado", "archivado"]
 ModoCalificacion = Literal["parcial_por_tests", "todo_o_nada_por_pregunta"]
+EstadoEntregaFiltro = Literal["abierta", "pendiente", "corregida"]
 TipoPregunta = Literal[
     "rellenar_huecos",
     "corregir_codigo",
@@ -152,6 +153,25 @@ class EntregaProfesor(BaseModel):
     hora_inicio: str
     hora_entrega: str | None
     eventos: list[EventoProfesor]
+
+
+class EntregaDetalleProfesor(EntregaProfesor):
+    examen_id: int
+    version_examen: int
+    modo_calificacion: ModoCalificacion
+    entregado_automaticamente: bool
+    consentimiento_version: str
+    preguntas: list[dict[str, Any]]
+    desglose: list[dict[str, Any]]
+    eventos_detalle: list[dict[str, Any]]
+
+
+class EstadisticasProfesor(BaseModel):
+    total_entregas: int
+    abiertas: int
+    corregidas: int
+    pendientes_revision: int
+    nota_media: float | None
 
 
 class CasoPruebaDocente(BaseModel):
