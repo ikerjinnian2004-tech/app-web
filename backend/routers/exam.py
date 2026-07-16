@@ -13,6 +13,7 @@ from backend.errors import bad_request, conflict, not_found
 from backend.models import Entrega, Pregunta, UsuarioPermitido
 from backend.schemas import ExamenResponse, IniciarExamenRequest, PreguntaExamen
 from backend.security import exigir_rol
+from backend.template_engine import contar_huecos
 
 router = APIRouter()
 
@@ -34,6 +35,11 @@ def pregunta_publica(pregunta: Pregunta) -> PreguntaExamen:
         enunciado=pregunta.enunciado,
         codigo_plantilla=pregunta.codigo_plantilla,
         opciones=opciones,
+        numero_huecos=(
+            contar_huecos(pregunta.codigo_plantilla or "")
+            if pregunta.tipo == "rellenar_huecos"
+            else 0
+        ),
         orden=pregunta.orden,
     )
 

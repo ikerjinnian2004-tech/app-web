@@ -1,4 +1,6 @@
-from backend.grader import grade_entrega
+import json
+
+from backend.grader import grade_code_answer, grade_entrega
 from backend.models import CasoPrueba, Pregunta, RespuestaAlumno
 
 
@@ -56,3 +58,35 @@ def test_corrector_mixto_calcula_nota_y_pendientes() -> None:
     resultado = grade_entrega(respuestas, preguntas, casos)
     assert resultado["nota_global"] == 10.0
     assert resultado["preguntas_pendientes"] == 1
+
+
+def test_corrector_compone_varios_huecos() -> None:
+    pregunta = Pregunta(
+        id=1,
+        examen_id=1,
+        tipo="rellenar_huecos",
+        titulo="suma y producto",
+        enunciado="",
+        codigo_plantilla=("def operaciones(a, b):\n    return [BLANK], [BLANK]"),
+        orden=1,
+        peso=1.0,
+    )
+    casos = [
+        CasoPrueba(
+            id=1,
+            pregunta_id=1,
+            descripcion="basico",
+            codigo_test="assert operaciones(2, 3) == (5, 6)",
+            salida_esperada="",
+            peso=1.0,
+        )
+    ]
+
+    resultado = grade_code_answer(
+        pregunta,
+        json.dumps(["a + b", "a * b"]),
+        casos,
+    )
+
+    assert resultado.nota == 10.0
+    assert resultado.tests_ok == 1

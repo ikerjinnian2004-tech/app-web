@@ -42,6 +42,17 @@ function controlRespuesta(pregunta) {
     return `<select name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}">${opciones}</select>`;
   }
 
+  if (pregunta.tipo === 'rellenar_huecos' && pregunta.numero_huecos > 1) {
+    const controles = Array.from({ length: pregunta.numero_huecos }, (_, indice) => `
+      <label for="pregunta-${pregunta.id}-hueco-${indice}">Hueco ${indice + 1}</label>
+      <textarea
+        id="pregunta-${pregunta.id}-hueco-${indice}"
+        data-hueco-indice="${indice}"
+      ></textarea>
+    `).join('');
+    return `<div data-pregunta-multiple="${pregunta.id}">${controles}</div>`;
+  }
+
   const valorInicial = pregunta.tipo === 'corregir_codigo' ? pregunta.codigo_plantilla || '' : '';
   return `<textarea name="pregunta-${pregunta.id}" data-pregunta-id="${pregunta.id}">${escapeHtml(valorInicial)}</textarea>`;
 }
@@ -67,16 +78,26 @@ function renderizarPregunta(pregunta) {
 }
 
 function actualizarContador() {
-  const respondidas = [...formulario.querySelectorAll('[data-pregunta-id]')]
+  const simples = [...formulario.querySelectorAll('[data-pregunta-id]')]
     .filter((control) => String(control.value || '').trim().length > 0).length;
+  const multiples = [...formulario.querySelectorAll('[data-pregunta-multiple]')]
+    .filter((grupo) => [...grupo.querySelectorAll('textarea')]
+      .some((control) => String(control.value || '').trim().length > 0)).length;
+  const respondidas = simples + multiples;
   contador.textContent = `${respondidas} respuestas`;
 }
 
 function recopilarRespuestas() {
-  return [...formulario.querySelectorAll('[data-pregunta-id]')].map((control) => ({
+  const simples = [...formulario.querySelectorAll('[data-pregunta-id]')].map((control) => ({
     pregunta_id: Number(control.dataset.preguntaId),
     contenido: String(control.value || ''),
   }));
+  const multiples = [...formulario.querySelectorAll('[data-pregunta-multiple]')].map((grupo) => ({
+    pregunta_id: Number(grupo.dataset.preguntaMultiple),
+    contenido: JSON.stringify([...grupo.querySelectorAll('textarea')]
+      .map((control) => String(control.value || ''))),
+  }));
+  return [...simples, ...multiples];
 }
 
 async function enviar(automatico = false) {

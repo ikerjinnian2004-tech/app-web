@@ -44,6 +44,12 @@ def test_flujo_alumno_con_preguntas_mixtas(client, examen_activo) -> None:
         "respuesta_corta",
     }
     assert "codigo_solucion" not in examen["preguntas"][0]
+    pregunta_huecos = next(
+        pregunta
+        for pregunta in examen["preguntas"]
+        if pregunta["tipo"] == "rellenar_huecos"
+    )
+    assert pregunta_huecos["numero_huecos"] == 1
 
     envio = client.post(
         "/entregas/enviar",

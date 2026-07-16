@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from dataclasses import dataclass
 from typing import Callable
 
@@ -13,7 +14,7 @@ from backend.sandbox.policy import (
 )
 from backend.sandbox.runner_docker import ejecutar_codigo_interno_docker
 from backend.sandbox.runner_subprocess import ejecutar_codigo_interno
-from backend.template_engine import assemble_code
+from backend.template_engine import assemble_code, count_blanks
 
 settings = get_settings()
 SandboxRunner = Callable[[str, int, int], dict[str, object]]
@@ -131,6 +132,18 @@ def build_error_result(
     )
 
 
+def parse_blank_answers(answer: str, number_of_blanks: int) -> list[str] | None:
+    if number_of_blanks == 1:
+        return [answer]
+    try:
+        parsed = json.loads(answer)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, list) or len(parsed) != number_of_blanks:
+        return None
+    return parsed if all(isinstance(item, str) for item in parsed) else None
+
+
 def grade_code_answer(
     question: Pregunta,
     answer: str,
@@ -140,8 +153,16 @@ def grade_code_answer(
         return build_error_result(question, test_cases, "NO_TESTS")
 
     if question.tipo == "rellenar_huecos":
-        is_safe, reason = validar_fragmento(answer)
+        blank_answers = parse_blank_answers(
+            answer, count_blanks(question.codigo_plantilla or "")
+        )
+        if blank_answers is None:
+            return build_error_result(question, test_cases, "INVALID_ANSWER")
+        validations = [validar_fragmento(item) for item in blank_answers]
+        is_safe = all(result[0] for result in validations)
+        reason = next((result[1] for result in validations if not result[0]), "")
     else:
+        blank_answers = []
         is_safe, reason = validar_programa(answer)
     if not is_safe:
         error_type = (
@@ -151,7 +172,7 @@ def grade_code_answer(
 
     if question.tipo == "rellenar_huecos":
         try:
-            base_code = assemble_code(question.codigo_plantilla or "", answer)
+            base_code = assemble_code(question.codigo_plantilla or "", blank_answers)
         except ValueError:
             return build_error_result(question, test_cases, "RUNTIME_ERROR")
     else:

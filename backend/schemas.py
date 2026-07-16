@@ -44,6 +44,7 @@ class PreguntaExamen(BaseModel):
     enunciado: str
     codigo_plantilla: str | None = None
     opciones: list[str] | None = None
+    numero_huecos: int = 0
     orden: int
 
     model_config = ConfigDict(from_attributes=True)
