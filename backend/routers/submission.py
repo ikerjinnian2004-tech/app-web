@@ -14,7 +14,7 @@ from backend.crud import (
     guardar_respuestas,
 )
 from backend.database import get_db
-from backend.errors import conflict, forbidden, not_found, request_timeout
+from backend.errors import bad_request, conflict, forbidden, not_found, request_timeout
 from backend.grader import grade_entrega
 from backend.models import UsuarioPermitido
 from backend.schemas import SubmissionCreate, SubmissionResponse
@@ -57,8 +57,16 @@ def enviar_entrega(
         )
 
     respuestas = [respuesta.model_dump() for respuesta in request.respuestas]
+    ids_asignados = {
+        asignacion.pregunta_id for asignacion in entrega.preguntas_asignadas
+    }
+    ids_recibidos = {respuesta["pregunta_id"] for respuesta in respuestas}
+    if ids_recibidos != ids_asignados or len(respuestas) != len(ids_recibidos):
+        raise bad_request(
+            "Debes enviar una única respuesta para cada pregunta asignada."
+        )
     respuestas_guardadas = guardar_respuestas(db, entrega, respuestas)
-    preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.examen_id)
+    preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.id)
     resultado = grade_entrega(respuestas_guardadas, preguntas, casos_por_pregunta)
     calificacion = guardar_calificacion(
         db,

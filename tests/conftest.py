@@ -25,7 +25,12 @@ os.environ.setdefault("LOG_LEVEL", "INFO")
 os.environ.setdefault("HEALTHCHECK_INTERVAL_SECONDS", "30")
 
 from backend.database import Base, get_db  # noqa: E402
-from backend.datos_iniciales import cargar_datos_iniciales  # noqa: E402
+from backend.datos_iniciales import (  # noqa: E402
+    cargar_datos_iniciales,
+    iterar_preguntas_iniciales,
+    iterar_usuarios_iniciales,
+    normalizar_correo,
+)
 from backend.main import app  # noqa: E402
 from backend.models import CasoPrueba, Examen, Pregunta, UsuarioPermitido  # noqa: E402
 
@@ -71,31 +76,44 @@ def client(db_session: Session) -> TestClient:
 @pytest.fixture(scope="function")
 def examen_activo(db_session: Session) -> Examen:
     datos = cargar_datos_iniciales()
-    for rol, usuarios in (
-        ("alumno", datos["usuarios"]["alumnos"]),
-        ("profesor", datos["usuarios"]["profesores"]),
-    ):
-        for usuario in usuarios:
-            db_session.add(
-                UsuarioPermitido(
-                    rol=rol,
-                    nombre=usuario["nombre"],
-                    apellidos=usuario.get("apellidos", ""),
-                    correo=usuario["correo"].lower(),
-                )
-            )
+    usuarios_por_correo: dict[str, UsuarioPermitido] = {}
+    for rol, usuario in iterar_usuarios_iniciales(datos):
+        usuario_permitido = UsuarioPermitido(
+            rol=rol,
+            nombre=usuario["nombre"],
+            apellidos=usuario.get("apellidos", ""),
+            correo=normalizar_correo(usuario["correo"]),
+        )
+        db_session.add(usuario_permitido)
+        usuarios_por_correo[usuario_permitido.correo] = usuario_permitido
+    db_session.flush()
+
     examen_data = datos["examen"]
+    profesor_principal = usuarios_por_correo[
+        normalizar_correo(examen_data["profesor_principal"])
+    ]
     examen = Examen(
         titulo=examen_data["titulo"],
+        descripcion=examen_data.get("descripcion", ""),
         duracion_segundos=int(examen_data["duracion_minutos"]) * 60,
-        activo=True,
+        activo=examen_data.get("estado", "publicado") == "publicado",
+        estado=examen_data.get("estado", "publicado"),
+        modo_calificacion=examen_data.get("modo_calificacion", "parcial_por_tests"),
+        seleccion_json=json.dumps(
+            examen_data.get("seleccion_por_tipo", {}), ensure_ascii=False
+        ),
+        version=examen_data.get("version", 1),
+        profesor_id=profesor_principal.id,
     )
     db_session.add(examen)
     db_session.flush()
 
-    for pregunta_data in examen_data["preguntas"]:
+    for pregunta_data in iterar_preguntas_iniciales(datos):
         pregunta = Pregunta(
             examen_id=examen.id,
+            clave=pregunta_data["clave"],
+            version=pregunta_data.get("version", 1),
+            estado=pregunta_data.get("estado", "publicada"),
             tipo=pregunta_data["tipo"],
             titulo=pregunta_data["titulo"],
             enunciado=pregunta_data["enunciado"],
@@ -107,8 +125,14 @@ def examen_activo(db_session: Session) -> Examen:
                 else None
             ),
             respuesta_correcta=pregunta_data.get("respuesta_correcta"),
+            limites_caracteres_json=(
+                json.dumps(pregunta_data["limites_caracteres"], ensure_ascii=False)
+                if "limites_caracteres" in pregunta_data
+                else None
+            ),
             orden=pregunta_data["orden"],
             peso=pregunta_data["peso"],
+            creada_por_id=profesor_principal.id,
         )
         db_session.add(pregunta)
         db_session.flush()
@@ -120,6 +144,7 @@ def examen_activo(db_session: Session) -> Examen:
                     codigo_test=caso_data["codigo_test"],
                     salida_esperada=caso_data.get("salida_esperada", ""),
                     peso=caso_data.get("peso", 1.0),
+                    visible=caso_data.get("visible", False),
                 )
             )
 
@@ -131,7 +156,10 @@ def examen_activo(db_session: Session) -> Examen:
 def acceder_alumno(client: TestClient) -> dict[str, str]:
     response = client.post(
         "/auth/acceder",
-        json={"rol": "alumno", "correo_institucional": "ana.garcia@alu.uclm.es"},
+        json={
+            "rol": "alumno",
+            "correo_institucional": "ikerjinnian.blanco@alu.uclm.es",
+        },
     )
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['token']}"}

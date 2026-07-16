@@ -1,7 +1,10 @@
 def test_acceso_alumno_y_profesor(client, examen_activo) -> None:
     alumno = client.post(
         "/auth/acceder",
-        json={"rol": "alumno", "correo_institucional": "ana.garcia@alu.uclm.es"},
+        json={
+            "rol": "alumno",
+            "correo_institucional": "IKERJINNIAN.BLANCO@ALU.UCLM.ES",
+        },
     )
     profesor = client.post(
         "/auth/acceder",
@@ -25,6 +28,6 @@ def test_rechaza_correo_fuera_de_semilla(client, examen_activo) -> None:
 def test_rechaza_dominio_incorrecto(client, examen_activo) -> None:
     response = client.post(
         "/auth/acceder",
-        json={"rol": "alumno", "correo_institucional": "ana.garcia@uclm.es"},
+        json={"rol": "alumno", "correo_institucional": "iker.blanco@uclm.es"},
     )
     assert response.status_code == 403

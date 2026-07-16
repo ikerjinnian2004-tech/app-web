@@ -39,12 +39,16 @@ class IniciarExamenRequest(BaseModel):
 
 class PreguntaExamen(BaseModel):
     id: int
+    clave: str
+    version: int
     tipo: TipoPregunta
     titulo: str
     enunciado: str
     codigo_plantilla: str | None = None
     opciones: list[str] | None = None
     numero_huecos: int = 0
+    limites_caracteres: list[int] | None = None
+    peso: float
     orden: int
 
     model_config = ConfigDict(from_attributes=True)

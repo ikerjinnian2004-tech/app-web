@@ -6,7 +6,12 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.crud import crear_entrega, get_examen_activo, get_ultima_entrega
+from backend.crud import (
+    crear_entrega,
+    get_examen_activo,
+    get_ultima_entrega,
+    seleccionar_preguntas,
+)
 from backend.database import get_db
 from backend.datos_iniciales import obtener_version_consentimiento
 from backend.errors import bad_request, conflict, not_found
@@ -26,10 +31,19 @@ def to_public_utc(value: datetime) -> str:
     return value.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
 
 
-def pregunta_publica(pregunta: Pregunta) -> PreguntaExamen:
+def pregunta_publica(
+    pregunta: Pregunta, orden: int | None = None, peso: float | None = None
+) -> PreguntaExamen:
     opciones = json.loads(pregunta.opciones_json) if pregunta.opciones_json else None
+    limites = (
+        json.loads(pregunta.limites_caracteres_json)
+        if pregunta.limites_caracteres_json
+        else None
+    )
     return PreguntaExamen(
         id=pregunta.id,
+        clave=pregunta.clave,
+        version=pregunta.version,
         tipo=pregunta.tipo,
         titulo=pregunta.titulo,
         enunciado=pregunta.enunciado,
@@ -40,15 +54,29 @@ def pregunta_publica(pregunta: Pregunta) -> PreguntaExamen:
             if pregunta.tipo == "rellenar_huecos"
             else 0
         ),
-        orden=pregunta.orden,
+        limites_caracteres=limites,
+        peso=pregunta.peso if peso is None else peso,
+        orden=pregunta.orden if orden is None else orden,
     )
 
 
 def response_from_entrega(entrega: Entrega) -> ExamenResponse:
-    preguntas = [
-        pregunta_publica(pregunta)
-        for pregunta in sorted(entrega.examen.preguntas, key=lambda item: item.orden)
-    ]
+    if entrega.preguntas_asignadas:
+        preguntas = [
+            pregunta_publica(
+                asignacion.pregunta,
+                orden=asignacion.orden,
+                peso=asignacion.peso,
+            )
+            for asignacion in entrega.preguntas_asignadas
+        ]
+    else:
+        preguntas = [
+            pregunta_publica(pregunta)
+            for pregunta in sorted(
+                entrega.examen.preguntas, key=lambda item: item.orden
+            )
+        ]
     return ExamenResponse(
         examen_id=entrega.examen.id,
         entrega_id=entrega.id,
@@ -82,6 +110,12 @@ def iniciar_examen(
     if entrega is not None and entrega.cerrada:
         raise conflict("La entrega ya está cerrada.")
     if entrega is None:
+        try:
+            preguntas = seleccionar_preguntas(examen)
+        except ValueError as exc:
+            raise conflict(str(exc)) from exc
+        if not preguntas:
+            raise conflict("El examen no tiene preguntas publicadas.")
         entrega = crear_entrega(
             db,
             alumno_id=alumno.id,
@@ -89,6 +123,7 @@ def iniciar_examen(
             hora_inicio=utc_now_naive(),
             consentimiento_version=version_actual,
             acepta_grabacion=request.acepta_grabacion,
+            preguntas=preguntas,
         )
         entrega.examen = examen
 

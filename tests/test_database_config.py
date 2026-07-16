@@ -1,5 +1,9 @@
 from backend.config import Settings
-from backend.database import build_engine_kwargs, is_sqlite_url
+from sqlalchemy import create_engine, inspect, text
+
+from backend.database import Base, build_engine_kwargs, is_sqlite_url
+from backend.migraciones import preparar_esquema
+import backend.models  # noqa: F401
 
 
 def make_settings(database_url: str) -> Settings:
@@ -43,3 +47,67 @@ def test_postgresql_engine_kwargs_incluye_pooling() -> None:
     assert kwargs["pool_pre_ping"] is True
     assert kwargs["pool_timeout"] == 30
     assert kwargs["pool_recycle"] == 1800
+
+
+def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
+    engine = create_engine("sqlite://", future=True)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE examenes ("
+                "id INTEGER PRIMARY KEY, titulo VARCHAR(200) NOT NULL, "
+                "duracion_segundos INTEGER NOT NULL, activo BOOLEAN NOT NULL, "
+                "creado_en TIMESTAMP NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE preguntas ("
+                "id INTEGER PRIMARY KEY, examen_id INTEGER NOT NULL, "
+                "tipo VARCHAR(40) NOT NULL, titulo VARCHAR(200) NOT NULL, "
+                "enunciado TEXT NOT NULL, codigo_plantilla TEXT, "
+                "codigo_solucion TEXT, opciones_json TEXT, "
+                "respuesta_correcta TEXT, orden INTEGER NOT NULL, "
+                "peso FLOAT NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE casos_prueba ("
+                "id INTEGER PRIMARY KEY, pregunta_id INTEGER NOT NULL, "
+                "descripcion VARCHAR(200) NOT NULL, codigo_test TEXT NOT NULL, "
+                "salida_esperada TEXT NOT NULL, peso FLOAT NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE respuestas_alumno ("
+                "id INTEGER PRIMARY KEY, entrega_id INTEGER NOT NULL, "
+                "pregunta_id INTEGER NOT NULL, contenido TEXT NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO preguntas "
+                "(id, examen_id, tipo, titulo, enunciado, orden, peso) "
+                "VALUES (7, 1, 'tipo_test', 'Legado', '', 1, 1.0)"
+            )
+        )
+
+    preparar_esquema(engine, Base.metadata)
+    preparar_esquema(engine, Base.metadata)
+
+    inspector = inspect(engine)
+    assert "preguntas_asignadas" in inspector.get_table_names()
+    assert "clave" in {
+        columna["name"] for columna in inspector.get_columns("preguntas")
+    }
+    with engine.connect() as connection:
+        clave = connection.execute(
+            text("SELECT clave FROM preguntas WHERE id = 7")
+        ).scalar_one()
+        versiones = connection.execute(
+            text("SELECT COUNT(*) FROM migraciones_esquema")
+        ).scalar_one()
+    assert clave == "pregunta-7"
+    assert versiones == 1

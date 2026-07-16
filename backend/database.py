@@ -73,13 +73,14 @@ Base = declarative_base()
 
 
 def create_tables() -> None:
-    """Crea las tablas declaradas por los modelos importados."""
+    """Actualiza el esquema y crea las tablas declaradas por los modelos."""
     # El import local evita ciclos durante el arranque.
     # Lo importante aquí es que Base.metadata solo conoce las tablas
     # una vez que los modelos han sido importados.
     import backend.models  # noqa: F401
+    from backend.migraciones import preparar_esquema
 
-    Base.metadata.create_all(bind=engine)
+    preparar_esquema(engine, Base.metadata)
 
 
 def get_db() -> Generator[Session, None, None]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from datetime import datetime
 from typing import Any
 
@@ -16,6 +17,7 @@ from backend.models import (
     EvidenciaAuditoria,
     Examen,
     Pregunta,
+    PreguntaAsignada,
     RespuestaAlumno,
     UsuarioPermitido,
 )
@@ -55,11 +57,35 @@ def obtener_o_crear_usuario_permitido(
 def get_examen_activo(db: Session) -> Examen | None:
     resultado = db.execute(
         select(Examen)
-        .where(Examen.activo.is_(True))
+        .where(Examen.activo.is_(True), Examen.estado == "publicado")
         .options(joinedload(Examen.preguntas).joinedload(Pregunta.casos_prueba))
         .order_by(Examen.id.desc())
     )
     return resultado.unique().scalars().first()
+
+
+def seleccionar_preguntas(
+    examen: Examen, randomizador: random.Random | random.SystemRandom | None = None
+) -> list[Pregunta]:
+    publicadas = [
+        pregunta for pregunta in examen.preguntas if pregunta.estado == "publicada"
+    ]
+    seleccion = json.loads(examen.seleccion_json or "{}")
+    if not seleccion:
+        return sorted(publicadas, key=lambda pregunta: pregunta.orden)
+
+    generador = randomizador or random.SystemRandom()
+    elegidas: list[Pregunta] = []
+    for tipo, cantidad in seleccion.items():
+        candidatas = [pregunta for pregunta in publicadas if pregunta.tipo == tipo]
+        if not isinstance(cantidad, int) or cantidad < 0:
+            raise ValueError(f"Cantidad no válida para el tipo {tipo}.")
+        if len(candidatas) < cantidad:
+            raise ValueError(
+                f"No hay suficientes preguntas publicadas del tipo {tipo}."
+            )
+        elegidas.extend(generador.sample(candidatas, cantidad))
+    return elegidas
 
 
 def get_entrega(db: Session, entrega_id: int) -> Entrega | None:
@@ -67,7 +93,10 @@ def get_entrega(db: Session, entrega_id: int) -> Entrega | None:
         select(Entrega)
         .where(Entrega.id == entrega_id)
         .options(
-            joinedload(Entrega.examen).joinedload(Examen.preguntas),
+            joinedload(Entrega.examen),
+            joinedload(Entrega.preguntas_asignadas)
+            .joinedload(PreguntaAsignada.pregunta)
+            .joinedload(Pregunta.casos_prueba),
             joinedload(Entrega.respuestas_alumno),
             joinedload(Entrega.calificacion),
             joinedload(Entrega.alumno),
@@ -91,6 +120,7 @@ def crear_entrega(
     hora_inicio: datetime,
     consentimiento_version: str,
     acepta_grabacion: bool,
+    preguntas: list[Pregunta],
 ) -> Entrega:
     entrega = Entrega(
         alumno_id=alumno_id,
@@ -100,6 +130,16 @@ def crear_entrega(
         acepta_grabacion=acepta_grabacion,
     )
     db.add(entrega)
+    db.flush()
+    for orden, pregunta in enumerate(preguntas, start=1):
+        entrega.preguntas_asignadas.append(
+            PreguntaAsignada(
+                pregunta_id=pregunta.id,
+                orden=orden,
+                peso=pregunta.peso,
+                version_pregunta=pregunta.version,
+            )
+        )
     db.commit()
     db.refresh(entrega)
     return entrega
@@ -129,18 +169,21 @@ def guardar_respuestas(
 
 
 def cargar_preguntas_y_casos(
-    db: Session, examen_id: int
+    db: Session, entrega_id: int
 ) -> tuple[list[Pregunta], dict[int, list[CasoPrueba]]]:
-    preguntas = list(
+    asignaciones = list(
         db.scalars(
-            select(Pregunta)
-            .where(Pregunta.examen_id == examen_id)
-            .options(joinedload(Pregunta.casos_prueba))
-            .order_by(Pregunta.orden.asc())
+            select(PreguntaAsignada)
+            .where(PreguntaAsignada.entrega_id == entrega_id)
+            .options(
+                joinedload(PreguntaAsignada.pregunta).joinedload(Pregunta.casos_prueba)
+            )
+            .order_by(PreguntaAsignada.orden.asc())
         )
         .unique()
         .all()
     )
+    preguntas = [asignacion.pregunta for asignacion in asignaciones]
     return preguntas, {
         pregunta.id: list(pregunta.casos_prueba) for pregunta in preguntas
     }

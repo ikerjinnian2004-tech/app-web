@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary
-from sqlalchemy import String, Text
+from sqlalchemy import String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -42,8 +42,20 @@ class Examen(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False, default="")
     duracion_segundos: Mapped[int] = mapped_column(Integer, nullable=False)
     activo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), default="publicado", nullable=False)
+    modo_calificacion: Mapped[str] = mapped_column(
+        String(30), default="parcial_por_tests", nullable=False
+    )
+    seleccion_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    apertura_en: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    cierre_en: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    profesor_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuarios_permitidos.id"), nullable=True
+    )
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, default=utc_now, nullable=False
     )
@@ -60,11 +72,17 @@ class Pregunta(Base):
     """Pregunta del examen con estrategia de corrección explícita."""
 
     __tablename__ = "preguntas"
+    __table_args__ = (
+        UniqueConstraint("clave", "version", name="uq_pregunta_clave_version"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     examen_id: Mapped[int] = mapped_column(
         ForeignKey("examenes.id", ondelete="CASCADE"), nullable=False
     )
+    clave: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), default="publicada", nullable=False)
     tipo: Mapped[str] = mapped_column(String(40), nullable=False)
     titulo: Mapped[str] = mapped_column(String(200), nullable=False)
     enunciado: Mapped[str] = mapped_column(Text, nullable=False)
@@ -72,8 +90,12 @@ class Pregunta(Base):
     codigo_solucion: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     opciones_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     respuesta_correcta: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    limites_caracteres_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     orden: Mapped[int] = mapped_column(Integer, nullable=False)
     peso: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    creada_por_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("usuarios_permitidos.id"), nullable=True
+    )
 
     examen: Mapped["Examen"] = relationship("Examen", back_populates="preguntas")
     casos_prueba: Mapped[list["CasoPrueba"]] = relationship(
@@ -83,6 +105,9 @@ class Pregunta(Base):
     )
     respuestas_alumno: Mapped[list["RespuestaAlumno"]] = relationship(
         "RespuestaAlumno", back_populates="pregunta"
+    )
+    asignaciones: Mapped[list["PreguntaAsignada"]] = relationship(
+        "PreguntaAsignada", back_populates="pregunta"
     )
 
 
@@ -99,6 +124,7 @@ class CasoPrueba(Base):
     codigo_test: Mapped[str] = mapped_column(Text, nullable=False)
     salida_esperada: Mapped[str] = mapped_column(Text, nullable=False, default="")
     peso: Mapped[float] = mapped_column(Float, default=1.0, nullable=False)
+    visible: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     pregunta: Mapped["Pregunta"] = relationship(
         "Pregunta", back_populates="casos_prueba"
@@ -133,6 +159,12 @@ class Entrega(Base):
         back_populates="entrega",
         cascade="all, delete-orphan",
     )
+    preguntas_asignadas: Mapped[list["PreguntaAsignada"]] = relationship(
+        "PreguntaAsignada",
+        back_populates="entrega",
+        cascade="all, delete-orphan",
+        order_by="PreguntaAsignada.orden",
+    )
     calificacion: Mapped[Optional["Calificacion"]] = relationship(
         "Calificacion",
         back_populates="entrega",
@@ -146,10 +178,39 @@ class Entrega(Base):
     )
 
 
+class PreguntaAsignada(Base):
+    """Pregunta y peso fijados para una entrega concreta."""
+
+    __tablename__ = "preguntas_asignadas"
+    __table_args__ = (
+        UniqueConstraint("entrega_id", "pregunta_id", name="uq_entrega_pregunta"),
+        UniqueConstraint("entrega_id", "orden", name="uq_entrega_orden"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entrega_id: Mapped[int] = mapped_column(
+        ForeignKey("entregas.id", ondelete="CASCADE"), nullable=False
+    )
+    pregunta_id: Mapped[int] = mapped_column(ForeignKey("preguntas.id"), nullable=False)
+    orden: Mapped[int] = mapped_column(Integer, nullable=False)
+    peso: Mapped[float] = mapped_column(Float, nullable=False)
+    version_pregunta: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    entrega: Mapped["Entrega"] = relationship(
+        "Entrega", back_populates="preguntas_asignadas"
+    )
+    pregunta: Mapped["Pregunta"] = relationship(
+        "Pregunta", back_populates="asignaciones"
+    )
+
+
 class RespuestaAlumno(Base):
     """Respuesta enviada por el alumno para una pregunta concreta."""
 
     __tablename__ = "respuestas_alumno"
+    __table_args__ = (
+        UniqueConstraint("entrega_id", "pregunta_id", name="uq_respuesta_entrega"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     entrega_id: Mapped[int] = mapped_column(

@@ -30,7 +30,12 @@ def main() -> int:
 
     from backend.crud import obtener_o_crear_usuario_permitido
     from backend.database import SessionLocal, create_tables
-    from backend.datos_iniciales import cargar_datos_iniciales, normalizar_correo
+    from backend.datos_iniciales import (
+        cargar_datos_iniciales,
+        iterar_preguntas_iniciales,
+        iterar_usuarios_iniciales,
+        normalizar_correo,
+    )
     from backend.models import CasoPrueba, Examen, Pregunta
     from backend.template_engine import validar_plantilla
 
@@ -39,20 +44,18 @@ def main() -> int:
 
     db = SessionLocal()
     try:
-        for rol, usuarios in (
-            ("alumno", datos["usuarios"]["alumnos"]),
-            ("profesor", datos["usuarios"]["profesores"]),
-        ):
-            for usuario in usuarios:
-                obtener_o_crear_usuario_permitido(
-                    db,
-                    {
-                        "rol": rol,
-                        "nombre": usuario["nombre"],
-                        "apellidos": usuario.get("apellidos", ""),
-                        "correo": normalizar_correo(usuario["correo"]),
-                    },
-                )
+        usuarios_creados = {}
+        for rol, usuario in iterar_usuarios_iniciales(datos):
+            creado = obtener_o_crear_usuario_permitido(
+                db,
+                {
+                    "rol": rol,
+                    "nombre": usuario["nombre"],
+                    "apellidos": usuario.get("apellidos", ""),
+                    "correo": normalizar_correo(usuario["correo"]),
+                },
+            )
+            usuarios_creados[creado.correo] = creado
 
         if db.query(Examen).count() > 0:
             print("Usuarios revisados; el examen ya estaba sembrado.")
@@ -61,19 +64,32 @@ def main() -> int:
         examen_data = datos["examen"]
         examen = Examen(
             titulo=examen_data["titulo"],
+            descripcion=examen_data.get("descripcion", ""),
             duracion_segundos=int(examen_data["duracion_minutos"]) * 60,
-            activo=True,
+            activo=examen_data.get("estado", "publicado") == "publicado",
+            estado=examen_data.get("estado", "publicado"),
+            modo_calificacion=examen_data.get("modo_calificacion", "parcial_por_tests"),
+            seleccion_json=json.dumps(
+                examen_data.get("seleccion_por_tipo", {}), ensure_ascii=False
+            ),
+            version=examen_data.get("version", 1),
+            profesor_id=usuarios_creados[
+                normalizar_correo(examen_data["profesor_principal"])
+            ].id,
         )
         db.add(examen)
         db.flush()
 
-        for pregunta_data in examen_data["preguntas"]:
+        for pregunta_data in iterar_preguntas_iniciales(datos):
             plantilla = pregunta_data.get("codigo_plantilla")
             if pregunta_data["tipo"] == "rellenar_huecos" and plantilla:
                 validar_plantilla(plantilla)
 
             pregunta = Pregunta(
                 examen_id=examen.id,
+                clave=pregunta_data["clave"],
+                version=pregunta_data.get("version", 1),
+                estado=pregunta_data.get("estado", "publicada"),
                 tipo=pregunta_data["tipo"],
                 titulo=pregunta_data["titulo"],
                 enunciado=pregunta_data["enunciado"],
@@ -85,8 +101,14 @@ def main() -> int:
                     else None
                 ),
                 respuesta_correcta=pregunta_data.get("respuesta_correcta"),
+                limites_caracteres_json=(
+                    json.dumps(pregunta_data["limites_caracteres"], ensure_ascii=False)
+                    if "limites_caracteres" in pregunta_data
+                    else None
+                ),
                 orden=pregunta_data["orden"],
                 peso=pregunta_data["peso"],
+                creada_por_id=examen.profesor_id,
             )
             db.add(pregunta)
             db.flush()
@@ -99,6 +121,7 @@ def main() -> int:
                         codigo_test=caso_data["codigo_test"],
                         salida_esperada=caso_data.get("salida_esperada", ""),
                         peso=caso_data.get("peso", 1.0),
+                        visible=caso_data.get("visible", False),
                     )
                 )
 

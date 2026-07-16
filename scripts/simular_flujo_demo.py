@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -51,13 +52,30 @@ def iniciar_examen(client, headers: dict[str, str]) -> dict:
 
 
 def respuesta_correcta(pregunta: dict) -> str:
-    if pregunta["tipo"] == "rellenar_huecos":
-        return "a + b"
-    if pregunta["tipo"] == "corregir_codigo":
-        return "def maximo(a, b):\n    if a >= b:\n        return a\n    return b"
-    if pregunta["tipo"] == "tipo_test":
-        return "list"
-    return "Imprime 6 porque suma los valores 1, 2 y 3."
+    respuestas = {
+        "suma-basica": "a + b",
+        "suma-producto-dos-huecos": json.dumps(["a + b", "a * b"]),
+        "maximo-dos-valores": (
+            "def maximo(a, b):\n    if a >= b:\n        return a\n    return b"
+        ),
+        "clasificar-edad": (
+            "def clasificar_edad(edad):\n"
+            "    if 0 <= edad <= 12:\n"
+            "        return 'niñez'\n"
+            "    if 12 < edad < 18:\n"
+            "        return 'adolescencia'\n"
+            "    if edad >= 18:\n"
+            "        return 'edad adulta'\n"
+            "    raise ValueError('edad no válida')"
+        ),
+        "estructura-mutable": "list",
+        "resultado-range": "[1, 3, 5]",
+        "traza-acumulador": "Imprime 6 porque suma los valores 1, 2 y 3.",
+        "acceso-diccionario": (
+            "Se encadenan las claves del alumno, la asignatura y la nota."
+        ),
+    }
+    return respuestas[pregunta["clave"]]
 
 
 def main() -> int:
@@ -75,7 +93,7 @@ def main() -> int:
     from backend.main import app
 
     with TestClient(app) as client:
-        headers_alumno = acceder(client, "alumno", "ana.garcia@alu.uclm.es")
+        headers_alumno = acceder(client, "alumno", "ikerjinnian.blanco@alu.uclm.es")
         examen = iniciar_examen(client, headers_alumno)
         respuestas = [
             {"pregunta_id": pregunta["id"], "contenido": respuesta_correcta(pregunta)}

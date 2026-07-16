@@ -52,7 +52,7 @@ def test_auditoria_evidencia_y_panel_docente(client, examen_activo) -> None:
 
     csv = client.get("/profesor/exportar", headers=headers_profesor)
     assert csv.status_code == 200
-    assert "ana.garcia@alu.uclm.es" in csv.text
+    assert "ikerjinnian.blanco@alu.uclm.es" in csv.text
 
 
 def test_panel_docente_rechaza_token_de_alumno(client, examen_activo) -> None:
