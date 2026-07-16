@@ -151,6 +151,9 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
         versiones = connection.execute(
             text("SELECT COUNT(*) FROM migraciones_esquema")
         ).scalar_one()
+        versiones_examen = connection.execute(
+            text("SELECT COUNT(*) FROM versiones_examen WHERE examen_id = 1")
+        ).scalar_one()
         instantanea = connection.execute(
             text(
                 "SELECT titulo_examen, duracion_examen_segundos "
@@ -158,5 +161,6 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
             )
         ).one()
     assert clave == "pregunta-7"
-    assert versiones == 5
+    assert versiones == 6
+    assert versiones_examen == 1
     assert instantanea == ("Examen legado", 3600)

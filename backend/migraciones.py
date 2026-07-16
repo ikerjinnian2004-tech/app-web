@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 5
+VERSION_ESQUEMA = 6
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -126,12 +127,68 @@ def _aplicar_migracion_permisos(connection: Connection) -> None:
     _agregar_columnas(connection, "entregas", COLUMNAS_PERMISOS_EVIDENCIA)
 
 
+def _asegurar_instantaneas_examen(connection: Connection) -> None:
+    tablas = set(inspect(connection).get_table_names())
+    if not {"examenes", "versiones_examen"}.issubset(tablas):
+        return
+
+    examenes = connection.execute(
+        text(
+            "SELECT e.id, e.titulo, e.descripcion, e.duracion_segundos, "
+            "e.estado, e.modo_calificacion, e.seleccion_json, e.version, "
+            "e.apertura_en, e.cierre_en, e.profesor_id "
+            "FROM examenes e WHERE NOT EXISTS ("
+            "SELECT 1 FROM versiones_examen v "
+            "WHERE v.examen_id = e.id AND v.version = e.version)"
+        )
+    ).mappings()
+    for examen in examenes:
+        try:
+            seleccion = json.loads(examen["seleccion_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            seleccion = {}
+        configuracion = {
+            "titulo": examen["titulo"],
+            "descripcion": examen["descripcion"] or "",
+            "duracion_segundos": examen["duracion_segundos"],
+            "estado": examen["estado"],
+            "modo_calificacion": examen["modo_calificacion"],
+            "seleccion_por_tipo": seleccion,
+            "apertura_en": (
+                examen["apertura_en"].isoformat()
+                if isinstance(examen["apertura_en"], datetime)
+                else examen["apertura_en"]
+            ),
+            "cierre_en": (
+                examen["cierre_en"].isoformat()
+                if isinstance(examen["cierre_en"], datetime)
+                else examen["cierre_en"]
+            ),
+        }
+        connection.execute(
+            text(
+                "INSERT INTO versiones_examen "
+                "(examen_id, version, configuracion_json, creada_por_id, creada_en) "
+                "VALUES (:examen_id, :version, :configuracion, :creada_por_id, "
+                ":creada_en)"
+            ),
+            {
+                "examen_id": examen["id"],
+                "version": examen["version"],
+                "configuracion": json.dumps(configuracion, ensure_ascii=False),
+                "creada_por_id": examen["profesor_id"],
+                "creada_en": datetime.now(UTC).replace(tzinfo=None),
+            },
+        )
+
+
 MIGRACIONES = (
     (1, "banco_preguntas_versionado", _aplicar_migracion_banco),
     (2, "configuracion_examen_versionada", _aplicar_migracion_version_examen),
     (3, "revision_manual_trazable", lambda _: None),
     (4, "cierre_entrega_concurrente", _aplicar_migracion_concurrencia),
     (5, "permisos_evidencia_verificados", _aplicar_migracion_permisos),
+    (6, "instantanea_inicial_examen", _asegurar_instantaneas_examen),
 )
 
 
@@ -163,6 +220,10 @@ def preparar_esquema(engine: Engine, metadata: MetaData) -> None:
                 _registrar_version(connection, version, nombre)
 
         metadata.create_all(bind=connection)
+        # En instalaciones antiguas la tabla de versiones puede haberse creado
+        # durante create_all, después de aplicar la migración. La segunda pasada
+        # es segura porque la inserción comprueba la pareja examen/versión.
+        _asegurar_instantaneas_examen(connection)
         for version, nombre, _ in MIGRACIONES:
             if _version_aplicada(connection) < version:
                 _registrar_version(connection, version, nombre)
