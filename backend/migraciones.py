@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 2
+VERSION_ESQUEMA = 3
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -114,6 +114,7 @@ def _aplicar_migracion_version_examen(connection: Connection) -> None:
 MIGRACIONES = (
     (1, "banco_preguntas_versionado", _aplicar_migracion_banco),
     (2, "configuracion_examen_versionada", _aplicar_migracion_version_examen),
+    (3, "revision_manual_trazable", lambda connection: None),
 )
 
 

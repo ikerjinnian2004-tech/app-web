@@ -227,6 +227,20 @@ class VersionExamenDocente(BaseModel):
     creada_en: datetime
 
 
+class RevisionManualCrear(BaseModel):
+    nota: float = Field(ge=0, le=10)
+    comentario: str = Field(default="", max_length=10_000)
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class CalificacionDocente(BaseModel):
+    entrega_id: int
+    nota_global: float
+    preguntas_pendientes: int
+    desglose: list[dict[str, Any]]
+
+
 class HealthResponse(BaseModel):
     status: str
     db: str

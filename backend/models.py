@@ -214,6 +214,11 @@ class Entrega(Base):
         back_populates="entrega",
         cascade="all, delete-orphan",
     )
+    revisiones_manuales: Mapped[list["RevisionManual"]] = relationship(
+        "RevisionManual",
+        back_populates="entrega",
+        cascade="all, delete-orphan",
+    )
 
 
 class PreguntaAsignada(Base):
@@ -284,6 +289,35 @@ class Calificacion(Base):
     )
 
     entrega: Mapped["Entrega"] = relationship("Entrega", back_populates="calificacion")
+
+
+class RevisionManual(Base):
+    """Decisión docente trazable para una respuesta no corregible automáticamente."""
+
+    __tablename__ = "revisiones_manuales"
+    __table_args__ = (
+        UniqueConstraint(
+            "entrega_id", "pregunta_id", name="uq_revision_entrega_pregunta"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entrega_id: Mapped[int] = mapped_column(
+        ForeignKey("entregas.id", ondelete="CASCADE"), nullable=False
+    )
+    pregunta_id: Mapped[int] = mapped_column(ForeignKey("preguntas.id"), nullable=False)
+    profesor_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios_permitidos.id"), nullable=False
+    )
+    nota: Mapped[float] = mapped_column(Float, nullable=False)
+    comentario: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    revisada_en: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now, nullable=False
+    )
+
+    entrega: Mapped["Entrega"] = relationship(
+        "Entrega", back_populates="revisiones_manuales"
+    )
 
 
 class EventoAuditoria(Base):

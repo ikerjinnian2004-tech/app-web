@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
-from backend.crud import listar_entregas_para_profesor, obtener_evidencia
+from backend.crud import get_entrega, listar_entregas_para_profesor, obtener_evidencia
 from backend.database import get_db
 from backend.errors import bad_request, conflict, not_found
 from backend.models import (
@@ -20,11 +20,14 @@ from backend.models import (
     Entrega,
     Examen,
     Pregunta,
+    RevisionManual,
     UsuarioPermitido,
     VersionExamen,
+    utc_now,
 )
 from backend.schemas import (
     CasoPruebaDocente,
+    CalificacionDocente,
     ConfiguracionExamenActualizar,
     DefinicionPreguntaDocente,
     EntregaProfesor,
@@ -35,6 +38,7 @@ from backend.schemas import (
     PreguntaCrear,
     PreguntaDocente,
     PreguntaVersionar,
+    RevisionManualCrear,
     TipoPregunta,
     VersionExamenDocente,
 )
@@ -452,6 +456,95 @@ def actualizar_estado_pregunta(
     db.commit()
     db.refresh(pregunta)
     return _pregunta_docente(pregunta)
+
+
+@router.post(
+    "/entregas/{entrega_id}/revisiones/{pregunta_id}",
+    response_model=CalificacionDocente,
+)
+def revisar_respuesta_manualmente(
+    entrega_id: int,
+    pregunta_id: int,
+    datos: RevisionManualCrear,
+    profesor: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    db: Session = Depends(get_db),
+) -> CalificacionDocente:
+    entrega = get_entrega(db, entrega_id)
+    if entrega is None:
+        raise not_found("La entrega solicitada no existe.")
+    if entrega.calificacion is None:
+        raise conflict("La entrega todavía no tiene una calificación calculada.")
+    ids_asignados = {
+        asignacion.pregunta_id for asignacion in entrega.preguntas_asignadas
+    }
+    if pregunta_id not in ids_asignados:
+        raise bad_request("La pregunta no pertenece a esta entrega.")
+
+    desglose = json.loads(entrega.calificacion.desglose_json)
+    item = next(
+        (elemento for elemento in desglose if elemento["pregunta_id"] == pregunta_id),
+        None,
+    )
+    if item is None:
+        raise bad_request("La pregunta no aparece en el desglose de calificación.")
+    revision = db.scalar(
+        select(RevisionManual).where(
+            RevisionManual.entrega_id == entrega_id,
+            RevisionManual.pregunta_id == pregunta_id,
+        )
+    )
+    if item["estado"] != "pendiente_revision" and revision is None:
+        raise conflict("Esta pregunta no requiere revisión manual.")
+
+    ahora = utc_now()
+    if revision is None:
+        revision = RevisionManual(
+            entrega_id=entrega_id,
+            pregunta_id=pregunta_id,
+            profesor_id=profesor.id,
+        )
+        db.add(revision)
+    revision.profesor_id = profesor.id
+    revision.nota = datos.nota
+    revision.comentario = datos.comentario
+    revision.revisada_en = ahora
+
+    item["estado"] = "corregida"
+    item["nota"] = datos.nota
+    item["error_type"] = None
+    item["revision_manual"] = {
+        "profesor_id": profesor.id,
+        "comentario": datos.comentario,
+        "revisada_en": fecha_publica(ahora),
+    }
+    peso_total = 0.0
+    suma_ponderada = 0.0
+    for elemento in desglose:
+        if elemento.get("nota") is None:
+            elemento["contribucion"] = None
+            continue
+        peso = float(elemento.get("peso", 1.0))
+        contribucion = float(elemento["nota"]) * peso
+        elemento["contribucion"] = round(contribucion, 2)
+        peso_total += peso
+        suma_ponderada += contribucion
+
+    entrega.calificacion.nota_global = (
+        round(suma_ponderada / peso_total, 2) if peso_total else 0.0
+    )
+    entrega.calificacion.preguntas_pendientes = sum(
+        elemento["estado"] == "pendiente_revision" for elemento in desglose
+    )
+    entrega.calificacion.desglose_json = json.dumps(desglose, ensure_ascii=False)
+    entrega.calificacion.calculada_en = ahora
+    db.commit()
+    db.refresh(entrega.calificacion)
+    return CalificacionDocente(
+        entrega_id=entrega.id,
+        nota_global=entrega.calificacion.nota_global,
+        preguntas_pendientes=entrega.calificacion.preguntas_pendientes,
+        desglose=desglose,
+    )
 
 
 def entrega_profesor(entrega: Entrega) -> EntregaProfesor:
