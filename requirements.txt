@@ -1,126 +1,24 @@
-# --------------------------------------------------------------------
-# Flujo real de la aplicación
-# --------------------------------------------------------------------
-
-# Alumno → HTTP POST /submit (FastAPI + Uvicorn)
-#     │
-#     ├─ Pydantic valida el payload (código Python del alumno)
-#     ├─ JWT (python-jose) verifica que el alumno está autenticado
-#     ├─ SQLAlchemy guarda el envío en PostgreSQL (vía psycopg2)
-#     │
-#     ├─ docker SDK arranca contenedor efímero (sandbox)
-#     │     └─ ejecuta el código del alumno de forma aislada
-#     │     └─ captura stdout/stderr
-#     │     └─ mata el contenedor tras timeout o fin
-#     │
-#     ├─ Compara salida real vs. salida esperada
-#     ├─ Calcula nota
-#     └─ Devuelve JSON con nota + feedback al cliente
-
-# Nota sobre versiones:
-# El símbolo "==" significa versión exacta (ej. fastapi==0.111.0).
-# Esto garantiza reproducibilidad por si luego hay en el futuro alguna
-# actualización con cambios incompatibles, el entorno se crea
-# exactamente igual en cualquier máquina, servidor o contenedor.
-# El símbolo ">=" significa "esta versión o superior", usado solo
-# cuando la compatibilidad está suficientemente garantizada.
-# --------------------------------------------------------------------
-
-
-
-# --------------------------------------------------------------------
-# 1. Backend
-# --------------------------------------------------------------------
+# API y configuración
 fastapi==0.111.0
-# Framework web moderno para crear APIs rápidas.
-# Es la parte principal del servidor que recibe el código.
-
 uvicorn[standard]==0.40.0
-# Servidor que ejecuta la aplicación FastAPI.
-# Es lo que envía la API vía HTTP.
-
 pydantic==2.12.5
-# Valida que los datos del alumno sean correctos.
-# Evita procesar información errónea o maliciosa.
-
 pydantic-settings==2.12.0
-# Gestiona la configuración y claves secretas.
-# Mantiene el código limpio y seguro.
-
 python-dotenv==1.0.1
-# Lee archivos de configuración local (.env).
-# Permite ajustar la app según el entorno.
-# --------------------------------------------------------------------
 
-
-
-# --------------------------------------------------------------------
-# 2. Base de datos
-# --------------------------------------------------------------------
+# Persistencia
 sqlalchemy==2.0.44
-# Interactúa con la base de datos usando Python.
-# Guarda y consulta datos sin escribir SQL.
-
 psycopg2-binary==2.9.11
-# Conector para hablar con PostgreSQL.
-# Es la uni´´on entre la app y la base de datos.
-# --------------------------------------------------------------------
 
-
-
-# --------------------------------------------------------------------
-# 3. Autenticación y seguridad
-# --------------------------------------------------------------------
+# Autenticación y validación
 python-jose[cryptography]==3.5.0
-# Genera y verifica tokens de inicio de sesión.
-# Identifica a cada usuario de forma segura.
-
 email-validator>=2.0.0
-# Confirma que los correos electrónicos son válidos.
-# Evita guardar direcciones de email incorrectas.
-# --------------------------------------------------------------------
 
-
-
-# --------------------------------------------------------------------
-# 4. Sandbox
-# --------------------------------------------------------------------
+# Sandbox Docker
 docker==7.1.0
-# Crea contenedores aislados para el código.
-# Protege el servidor de errores o virus.
-# --------------------------------------------------------------------
 
-
-
-# --------------------------------------------------------------------
-# 5. Testing
-# --------------------------------------------------------------------
+# Pruebas y calidad
 pytest==8.4.2
-# Ejecuta pruebas automáticas del sistema.
-# Asegura que los cambios no rompan la app.
-
 httpx==0.28.1
-# Simula peticiones reales a la API en tests.
-# Comprueba que las respuestas sean correctas.
-
 pytest-asyncio==1.3.0
-# Permite probar código asíncrono en FastAPI.
-# Se usa para peticiones simultáneas.
-# --------------------------------------------------------------------
-
-
-
-# --------------------------------------------------------------------
-# 6. Calidad del código
-# --------------------------------------------------------------------
 ruff==0.14.6
-# Revisa el código en busca de errores.
-# Mejora el estilo y la legibilidad.
-
-black==25.11.0
-# Formatea el código automáticamente.
-# Unifica el estilo visual de todo el equipo.
-# --------------------------------------------------------------------
-
-
 

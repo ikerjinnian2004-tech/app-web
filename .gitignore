@@ -31,6 +31,8 @@ coverage.xml
 *.sqlite3
 *.log
 logs/
+tmp/
+output/
 
 # Build y dependencias externas
 dist/
