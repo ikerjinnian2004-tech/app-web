@@ -1,4 +1,6 @@
 from backend.config import Settings
+import pytest
+from pydantic import ValidationError
 from sqlalchemy import create_engine, inspect, text
 
 from backend.database import Base, build_engine_kwargs, is_sqlite_url
@@ -47,6 +49,20 @@ def test_postgresql_engine_kwargs_incluye_pooling() -> None:
     assert kwargs["pool_pre_ping"] is True
     assert kwargs["pool_timeout"] == 30
     assert kwargs["pool_recycle"] == 1800
+
+
+def test_configuracion_rechaza_limites_inseguros() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {
+                "DATABASE_URL": "sqlite:///./dev.db",
+                "SECRET_KEY": "clave-de-tests-1234567890-abcdefghijkl",
+                "IDENTITY_HMAC_KEY": "clave-hmac-de-tests-minimo-32-caracteres",
+                "ALLOWED_ORIGINS": "http://localhost:5500",
+                "SANDBOX_TIMEOUT_SECONDS": 0,
+                "SANDBOX_MEM_LIMIT_MB": 8,
+            }
+        )
 
 
 def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
@@ -142,5 +158,5 @@ def test_migracion_actualiza_un_esquema_sqlite_anterior() -> None:
             )
         ).one()
     assert clave == "pregunta-7"
-    assert versiones == 3
+    assert versiones == 4
     assert instantanea == ("Examen legado", 3600)

@@ -1,7 +1,13 @@
 import json
 
-from backend.grader import grade_code_answer, grade_entrega
+from backend.grader import (
+    build_batch_execution_code,
+    grade_code_answer,
+    grade_entrega,
+    parse_batch_results_from_stdout,
+)
 from backend.models import CasoPrueba, Pregunta, RespuestaAlumno
+from backend.sandbox.runner_subprocess import ejecutar_codigo_interno
 
 
 def test_corrector_mixto_calcula_nota_y_pendientes() -> None:
@@ -191,3 +197,20 @@ def test_nota_global_usa_el_peso_fijado_en_la_entrega() -> None:
 
     assert resultado["nota_global"] == 7.5
     assert [item["peso"] for item in resultado["desglose"]] == [3.0, 1.0]
+
+
+def test_captura_de_tests_limita_la_salida_antes_de_acumularla() -> None:
+    caso = CasoPrueba(
+        id=1,
+        pregunta_id=1,
+        descripcion="Salida grande",
+        codigo_test="assert True",
+        salida_esperada="",
+        peso=1.0,
+    )
+    codigo = build_batch_execution_code("print('x' * 10000)", [caso], 100)
+    ejecucion = ejecutar_codigo_interno(codigo, timeout=3, max_output=5_000)
+    resultados = parse_batch_results_from_stdout(str(ejecucion["stdout"]))
+
+    assert resultados is not None
+    assert len(str(resultados[0]["stdout"])) == 100

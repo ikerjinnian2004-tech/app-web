@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 RolUsuario = Literal["alumno", "profesor"]
 EstadoPregunta = Literal["borrador", "publicada", "retirada"]
@@ -76,7 +77,7 @@ class RespuestaItem(BaseModel):
 
 class SubmissionCreate(BaseModel):
     entrega_id: int
-    respuestas: list[RespuestaItem] = Field(min_length=1)
+    respuestas: list[RespuestaItem] = Field(min_length=1, max_length=100)
     entregado_automaticamente: bool = False
 
 
@@ -109,8 +110,16 @@ class AuditEventCreate(BaseModel):
         "ENVIO_TIEMPO",
         "EVIDENCIA_DENEGADA",
     ]
-    timestamp_cliente: str
+    timestamp_cliente: str = Field(min_length=10, max_length=50)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("metadata")
+    @classmethod
+    def limitar_metadata(cls, value: dict[str, Any]) -> dict[str, Any]:
+        serializado = json.dumps(value, ensure_ascii=False)
+        if len(serializado) > 5_000:
+            raise ValueError("Los metadatos superan 5000 caracteres.")
+        return value
 
 
 class AuditEventResponse(BaseModel):
@@ -162,13 +171,13 @@ class DefinicionPreguntaDocente(BaseModel):
     enunciado: str = Field(min_length=1, max_length=20_000)
     codigo_plantilla: str | None = Field(default=None, max_length=20_000)
     codigo_solucion: str | None = Field(default=None, max_length=20_000)
-    opciones: list[str] | None = None
+    opciones: list[str] | None = Field(default=None, max_length=20)
     respuesta_correcta: str | None = Field(default=None, max_length=20_000)
     limites_caracteres: list[int] | None = None
     orden: int = Field(ge=1)
     peso: float = Field(gt=0, le=100)
     estado: EstadoPregunta = "borrador"
-    casos_prueba: list[CasoPruebaDocente] = Field(default_factory=list)
+    casos_prueba: list[CasoPruebaDocente] = Field(default_factory=list, max_length=50)
 
     model_config = ConfigDict(str_strip_whitespace=True)
 

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 3
+VERSION_ESQUEMA = 4
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -32,6 +32,10 @@ COLUMNAS_ENTREGA_VERSIONADA = {
     "titulo_examen": "VARCHAR(200) NOT NULL DEFAULT ''",
     "duracion_examen_segundos": "INTEGER NOT NULL DEFAULT 0",
     "modo_calificacion": ("VARCHAR(30) NOT NULL DEFAULT 'parcial_por_tests'"),
+}
+COLUMNAS_ENTREGA_CONCURRENTE = {
+    "procesando": "BOOLEAN NOT NULL DEFAULT FALSE",
+    "procesando_desde": "TIMESTAMP NULL",
 }
 
 
@@ -111,10 +115,15 @@ def _aplicar_migracion_version_examen(connection: Connection) -> None:
     )
 
 
+def _aplicar_migracion_concurrencia(connection: Connection) -> None:
+    _agregar_columnas(connection, "entregas", COLUMNAS_ENTREGA_CONCURRENTE)
+
+
 MIGRACIONES = (
     (1, "banco_preguntas_versionado", _aplicar_migracion_banco),
     (2, "configuracion_examen_versionada", _aplicar_migracion_version_examen),
-    (3, "revision_manual_trazable", lambda connection: None),
+    (3, "revision_manual_trazable", lambda _: None),
+    (4, "cierre_entrega_concurrente", _aplicar_migracion_concurrencia),
 )
 
 

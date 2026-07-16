@@ -5,12 +5,16 @@ LLAMADAS_PROHIBIDAS: frozenset[str] = frozenset(
     {
         "__import__",
         "compile",
+        "breakpoint",
+        "delattr",
         "eval",
         "exec",
+        "getattr",
         "globals",
         "input",
         "locals",
         "open",
+        "setattr",
         "vars",
     }
 )
@@ -48,19 +52,18 @@ class VisitanteSeguridad(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         if isinstance(node.func, ast.Name) and node.func.id in LLAMADAS_PROHIBIDAS:
             self._bloquear(f"Llamada no permitida: {node.func.id}.")
-        elif (
-            isinstance(node.func, ast.Name)
-            and node.func.id in {"getattr", "setattr", "delattr"}
-            and len(node.args) > 1
-            and isinstance(node.args[1], ast.Constant)
-            and node.args[1].value in ATRIBUTOS_PROHIBIDOS
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        if node.attr in ATRIBUTOS_PROHIBIDOS or (
+            node.attr.startswith("__") and node.attr.endswith("__")
         ):
             self._bloquear("Acceso de introspección no permitido.")
         self.generic_visit(node)
 
-    def visit_Attribute(self, node: ast.Attribute) -> None:
-        if node.attr in ATRIBUTOS_PROHIBIDOS:
-            self._bloquear("Acceso de introspección no permitido.")
+    def visit_Name(self, node: ast.Name) -> None:
+        if node.id == "__builtins__":
+            self._bloquear("Acceso a builtins no permitido.")
         self.generic_visit(node)
 
 

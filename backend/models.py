@@ -187,6 +187,10 @@ class Entrega(Base):
         Boolean, default=False, nullable=False
     )
     cerrada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    procesando: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    procesando_desde: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
 
     alumno: Mapped["UsuarioPermitido"] = relationship(
         "UsuarioPermitido", back_populates="entregas"

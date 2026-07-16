@@ -12,6 +12,8 @@ from backend.crud import (
     get_entrega,
     guardar_calificacion,
     guardar_respuestas,
+    liberar_entrega,
+    reclamar_entrega,
 )
 from backend.database import get_db
 from backend.errors import bad_request, conflict, forbidden, not_found, request_timeout
@@ -81,32 +83,43 @@ def enviar_entrega(
         raise bad_request(
             "Debes enviar una única respuesta para cada pregunta asignada."
         )
-    respuestas_guardadas = guardar_respuestas(db, entrega, respuestas)
-    preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.id)
-    pesos_por_pregunta = {
-        asignacion.pregunta_id: asignacion.peso
-        for asignacion in entrega.preguntas_asignadas
-    }
-    resultado = grade_entrega(
-        respuestas_guardadas,
-        preguntas,
-        casos_por_pregunta,
-        pesos_por_pregunta=pesos_por_pregunta,
-        modo_calificacion=entrega.modo_calificacion,
-    )
-    calificacion = guardar_calificacion(
-        db,
-        entrega_id=entrega.id,
-        nota_global=float(resultado["nota_global"]),
-        preguntas_pendientes=int(resultado["preguntas_pendientes"]),
-        desglose=list(resultado["desglose"]),
-    )
-    cerrar_entrega(
-        db,
-        entrega,
-        hora_entrega=utc_now_naive(),
-        entregado_automaticamente=request.entregado_automaticamente,
-    )
+    if not reclamar_entrega(db, entrega.id, ahora):
+        db.expire_all()
+        actual = get_entrega(db, entrega.id)
+        if actual is not None and actual.cerrada and actual.calificacion is not None:
+            return response_from_calificacion(actual.id, actual.calificacion)
+        raise conflict("La entrega se está procesando en otra petición.")
+
+    try:
+        respuestas_guardadas = guardar_respuestas(db, entrega, respuestas)
+        preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.id)
+        pesos_por_pregunta = {
+            asignacion.pregunta_id: asignacion.peso
+            for asignacion in entrega.preguntas_asignadas
+        }
+        resultado = grade_entrega(
+            respuestas_guardadas,
+            preguntas,
+            casos_por_pregunta,
+            pesos_por_pregunta=pesos_por_pregunta,
+            modo_calificacion=entrega.modo_calificacion,
+        )
+        calificacion = guardar_calificacion(
+            db,
+            entrega_id=entrega.id,
+            nota_global=float(resultado["nota_global"]),
+            preguntas_pendientes=int(resultado["preguntas_pendientes"]),
+            desglose=list(resultado["desglose"]),
+        )
+        cerrar_entrega(
+            db,
+            entrega,
+            hora_entrega=utc_now_naive(),
+            entregado_automaticamente=request.entregado_automaticamente,
+        )
+    except Exception:
+        liberar_entrega(db, entrega.id)
+        raise
     return response_from_calificacion(entrega.id, calificacion)
 
 

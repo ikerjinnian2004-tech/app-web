@@ -13,6 +13,7 @@ from backend.sandbox.runner_subprocess import (
     ejecutar_codigo,
     ejecutar_codigo_interno,
 )
+from backend.sandbox.runner_docker import ejecutar_codigo_interno_docker
 
 
 @pytest.mark.parametrize(
@@ -27,6 +28,16 @@ from backend.sandbox.runner_subprocess import (
         'open("x.txt", "w")',
         "object.__subclasses__()",
         'getattr(object, "__subclasses__")()',
+        'getattr(object, "__" + "subclasses__")()',
+        "__builtins__['__import__']('os')",
+        "().__reduce_ex__(2)",
+        "(lambda: 1).__globals__",
+        "breakpoint()",
+        "setattr(object, 'x', 1)",
+        "delattr(object, 'x')",
+        "type.__getattribute__(object, '__class__')",
+        "object.__dict__",
+        "(1).__class__.__mro__",
     ],
 )
 def test_ast_bloquea_operaciones_peligrosas(codigo: str) -> None:
@@ -39,6 +50,22 @@ def test_syntax_error_se_identifica_en_la_politica() -> None:
     es_valido, motivo = validar_fragmento("def f(:\n    pass")
     assert es_valido is False
     assert motivo.startswith("SyntaxError:")
+
+
+@pytest.mark.parametrize(
+    "codigo",
+    [
+        "sum([1, 2, 3])",
+        "max(4, 8)",
+        "[numero * 2 for numero in range(3)]",
+        "{'nota': 8}.get('nota')",
+        "'python'.upper()",
+    ],
+)
+def test_ast_conserva_operaciones_docentes_seguras(codigo: str) -> None:
+    es_valido, motivo = validar_fragmento(codigo)
+    assert es_valido is True
+    assert motivo == ""
 
 
 def test_timeout_en_bucle_infinito() -> None:
@@ -80,3 +107,49 @@ def test_clasificacion_de_errores_publicos() -> None:
     assert clasificar_error(-9, "") == "TIMEOUT"
     assert clasificar_error(1, "Llamada no permitida: open.") == "SECURITY_BLOCKED"
     assert clasificar_error(1, "ValueError: fallo") == "RUNTIME_ERROR"
+
+
+def test_runner_docker_aplica_aislamiento_y_limpia_contenedor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    llamadas: list[dict] = []
+
+    class ContenedorFalso:
+        eliminado = False
+
+        def wait(self, timeout: int) -> dict[str, int]:
+            assert timeout == 2
+            return {"StatusCode": 0}
+
+        def logs(self, **kwargs: bool) -> bytes:
+            return b"ok"
+
+        def remove(self, force: bool) -> None:
+            assert force is True
+            self.eliminado = True
+
+    contenedor = ContenedorFalso()
+
+    class ContenedoresFalsos:
+        def run(self, *args: object, **kwargs: object) -> ContenedorFalso:
+            llamadas.append(kwargs)
+            return contenedor
+
+    class ClienteFalso:
+        containers = ContenedoresFalsos()
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "backend.sandbox.runner_docker.docker.from_env", lambda: ClienteFalso()
+    )
+    resultado = ejecutar_codigo_interno_docker("print('ok')", 2, 100)
+
+    assert resultado["returncode"] == 0
+    assert llamadas[0]["network_mode"] == "none"
+    assert llamadas[0]["read_only"] is True
+    assert llamadas[0]["cap_drop"] == ["ALL"]
+    assert llamadas[0]["security_opt"] == ["no-new-privileges:true"]
+    assert llamadas[0]["user"] == "65534:65534"
+    assert contenedor.eliminado is True

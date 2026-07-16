@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -178,6 +178,40 @@ def guardar_respuestas(
     return nuevas
 
 
+def reclamar_entrega(
+    db: Session,
+    entrega_id: int,
+    ahora: datetime,
+    caducidad_segundos: int = 120,
+) -> bool:
+    """Reserva una entrega con un UPDATE atómico y recupera reservas caducadas."""
+    reserva_caducada = ahora - timedelta(seconds=caducidad_segundos)
+    resultado = db.execute(
+        update(Entrega)
+        .where(
+            Entrega.id == entrega_id,
+            Entrega.cerrada.is_(False),
+            or_(
+                Entrega.procesando.is_(False),
+                Entrega.procesando_desde.is_(None),
+                Entrega.procesando_desde < reserva_caducada,
+            ),
+        )
+        .values(procesando=True, procesando_desde=ahora)
+    )
+    db.commit()
+    return resultado.rowcount == 1
+
+
+def liberar_entrega(db: Session, entrega_id: int) -> None:
+    db.execute(
+        update(Entrega)
+        .where(Entrega.id == entrega_id, Entrega.cerrada.is_(False))
+        .values(procesando=False, procesando_desde=None)
+    )
+    db.commit()
+
+
 def cargar_preguntas_y_casos(
     db: Session, entrega_id: int
 ) -> tuple[list[Pregunta], dict[int, list[CasoPrueba]]]:
@@ -230,6 +264,8 @@ def cerrar_entrega(
     entrega.hora_entrega = hora_entrega
     entrega.entregado_automaticamente = entregado_automaticamente
     entrega.cerrada = True
+    entrega.procesando = False
+    entrega.procesando_desde = None
     db.commit()
     db.refresh(entrega)
     return entrega

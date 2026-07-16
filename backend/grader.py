@@ -62,21 +62,31 @@ def is_compilable_code(code: str) -> tuple[bool, str]:
     return True, ""
 
 
-def build_batch_execution_code(base_code: str, test_cases: list[CasoPrueba]) -> str:
+def build_batch_execution_code(
+    base_code: str,
+    test_cases: list[CasoPrueba],
+    output_limit_per_case: int,
+) -> str:
     tests_literal = repr([test_case.codigo_test for test_case in test_cases])
     return f"""
 __tfg_student_code__ = {base_code!r}
 __tfg_tests__ = {tests_literal}
 __tfg_results__ = []
+__tfg_output_limit__ = {output_limit_per_case}
 
 def __tfg_make_capture__():
     __tfg_chunks__ = []
+    __tfg_size__ = [0]
 
     def __tfg_print__(*args, **kwargs):
         __tfg_sep__ = kwargs.get("sep", " ")
         __tfg_end__ = kwargs.get("end", "\\n")
         __tfg_text__ = __tfg_sep__.join(str(arg) for arg in args) + __tfg_end__
-        __tfg_chunks__.append(__tfg_text__)
+        __tfg_remaining__ = __tfg_output_limit__ - __tfg_size__[0]
+        if __tfg_remaining__ > 0:
+            __tfg_piece__ = __tfg_text__[:__tfg_remaining__]
+            __tfg_chunks__.append(__tfg_piece__)
+            __tfg_size__[0] += len(__tfg_piece__)
 
     return __tfg_chunks__, __tfg_print__
 
@@ -185,8 +195,15 @@ def grade_code_answer(
     if not is_compilable:
         return build_error_result(question, test_cases, "SYNTAX_ERROR")
 
+    limite_por_caso = max(
+        100,
+        min(
+            1_000,
+            settings.sandbox_max_output_chars // (max(len(test_cases), 1) * 2),
+        ),
+    )
     execution = get_runner()(
-        build_batch_execution_code(base_code, test_cases),
+        build_batch_execution_code(base_code, test_cases, limite_por_caso),
         timeout=settings.sandbox_timeout_seconds,
         max_output=settings.sandbox_max_output_chars,
     )

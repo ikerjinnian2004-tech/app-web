@@ -16,6 +16,8 @@ from backend.models import UsuarioPermitido
 settings = get_settings()
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 8
+TOKEN_ISSUER = "evaluador-python-tfg"
+TOKEN_AUDIENCE = "evaluador-web"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/acceder")
 
 
@@ -35,6 +37,8 @@ def crear_token_acceso(usuario: UsuarioPermitido) -> str:
         "rol": usuario.rol,
         "nombre": usuario.nombre,
         "correo": usuario.correo,
+        "iss": TOKEN_ISSUER,
+        "aud": TOKEN_AUDIENCE,
         "exp": expires_at,
     }
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
@@ -42,7 +46,13 @@ def crear_token_acceso(usuario: UsuarioPermitido) -> str:
 
 def verificar_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+        return jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[ALGORITHM],
+            audience=TOKEN_AUDIENCE,
+            issuer=TOKEN_ISSUER,
+        )
     except JWTError:
         return None
 
@@ -58,7 +68,11 @@ def obtener_usuario_actual(
             detail="Token inválido o expirado.",
         )
 
-    usuario = db.get(UsuarioPermitido, int(claims["sub"]))
+    try:
+        usuario_id = int(claims["sub"])
+    except (TypeError, ValueError):
+        usuario_id = -1
+    usuario = db.get(UsuarioPermitido, usuario_id)
     if usuario is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
