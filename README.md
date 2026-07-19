@@ -1,11 +1,11 @@
 # Evaluador web de ejercicios de Python
 
-Prototipo de Trabajo Fin de Grado para crear, realizar y revisar pruebas de
+Prototipo de aplicación web desarrollada en un Trabajo Fin de Grado para crear, realizar y revisar pruebas de
 programación. La aplicación combina un backend FastAPI, persistencia SQLAlchemy y
 un frontend nativo HTML/CSS/JavaScript. La calificación automática es determinista;
 las respuestas abiertas quedan pendientes de revisión docente.
 
-## Funcionalidad incluida
+## Qué tiene: 
 
 - Acceso por rol y lista institucional de usuarios autorizados.
 - Consentimiento y comprobación obligatoria de permisos de pantalla, cámara y
@@ -23,7 +23,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 - Protección frente a reenvíos y procesamiento concurrente de una misma entrega.
 - Migraciones ligeras e idempotentes para evolucionar bases ya creadas.
 
-## Arquitectura
+## Qué la conforma: 
 
 | Componente | Tecnología | Responsabilidad |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 | Corrección | Python y casos de prueba | Evaluación determinista y desglose trazable |
 | Sandbox | Subproceso local o contenedor Docker | Límites de tiempo, salida, memoria, CPU y procesos |
 
-## Requisitos
+## Requisitos previos: 
 
 - Python 3.11 o superior.
 - `pip`.
@@ -42,7 +42,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 - Docker Desktop y Docker Compose, solo para PostgreSQL, despliegue en contenedores
   o sandbox aislado.
 
-## Puesta en marcha local (PowerShell)
+## Arrancarla en local (PowerShell)
 
 ```powershell
 python -m venv .venv
@@ -106,7 +106,7 @@ normalizan sin distinguir mayúsculas y minúsculas.
 7. Asigna una nota a la respuesta corta y guarda la revisión.
 8. Descarga el CSV para comprobar la exportación trazable.
 
-## Verificación reproducible
+## Verificación: 
 
 Con el entorno virtual activado:
 
@@ -160,14 +160,3 @@ scripts/            reinicio de base y simulación integral
 tests/              pruebas unitarias, de integración, seguridad y concurrencia
 .github/workflows/  integración continua
 ```
-
-## Límites del prototipo
-
-- No hay SSO ni contraseñas: la autenticación usa identidades sembradas para una
-  demostración controlada.
-- El consentimiento requiere revisión jurídica antes de utilizar datos reales.
-- El runner por subproceso reduce riesgos, pero no sustituye el aislamiento fuerte
-  de contenedores en un entorno compartido.
-- Las migraciones incluidas cubren la evolución actual; una explotación prolongada
-  debería adoptar una herramienta como Alembic y una política formal de copias.
-- No se declara una licencia de software en este repositorio.
