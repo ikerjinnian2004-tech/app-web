@@ -72,6 +72,22 @@ class ExamenResponse(BaseModel):
     preguntas: list[PreguntaExamen]
 
 
+class BorradorGuardarRequest(BaseModel):
+    pregunta_id: int = Field(gt=0)
+    contenido: str = Field(max_length=20_000)
+    version_esperada: int = Field(default=0, ge=0)
+
+
+class BorradorResponse(BaseModel):
+    entrega_id: int
+    pregunta_id: int
+    contenido: str
+    version: int
+    actualizado_en: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RespuestaItem(BaseModel):
     pregunta_id: int
     contenido: str = Field(max_length=20_000)

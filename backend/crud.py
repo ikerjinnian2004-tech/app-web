@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from backend.models import (
+    AccesoEvidencia,
     Calificacion,
     CasoPrueba,
     Entrega,
@@ -21,6 +22,7 @@ from backend.models import (
     RespuestaAlumno,
     UsuarioPermitido,
 )
+from backend.servicios_entregas import liberar_reserva, reservar_entrega
 
 
 def obtener_o_crear_usuario_permitido(
@@ -141,20 +143,27 @@ def crear_entrega(
         acepta_grabacion=acepta_grabacion,
         permisos_evidencia_verificados=permisos_evidencia_verificados,
     )
-    db.add(entrega)
-    db.flush()
-    for orden, pregunta in enumerate(preguntas, start=1):
-        entrega.preguntas_asignadas.append(
-            PreguntaAsignada(
-                pregunta_id=pregunta.id,
-                orden=orden,
-                peso=pregunta.peso,
-                version_pregunta=pregunta.version,
+    try:
+        db.add(entrega)
+        db.flush()
+        for orden, pregunta in enumerate(preguntas, start=1):
+            entrega.preguntas_asignadas.append(
+                PreguntaAsignada(
+                    pregunta_id=pregunta.id,
+                    orden=orden,
+                    peso=pregunta.peso,
+                    version_pregunta=pregunta.version,
+                )
             )
-        )
-    db.commit()
-    db.refresh(entrega)
-    return entrega
+        db.commit()
+        db.refresh(entrega)
+        return entrega
+    except IntegrityError:
+        db.rollback()
+        existente = get_ultima_entrega(db, alumno_id, examen.id)
+        if existente is None:
+            raise
+        return existente
 
 
 def guardar_respuestas(
@@ -174,9 +183,7 @@ def guardar_respuestas(
         db.add(nueva)
         nuevas.append(nueva)
 
-    db.commit()
-    for respuesta in nuevas:
-        db.refresh(respuesta)
+    db.flush()
     return nuevas
 
 
@@ -186,32 +193,12 @@ def reclamar_entrega(
     ahora: datetime,
     caducidad_segundos: int = 120,
 ) -> bool:
-    """Reserva una entrega con un UPDATE atómico y recupera reservas caducadas."""
-    reserva_caducada = ahora - timedelta(seconds=caducidad_segundos)
-    resultado = db.execute(
-        update(Entrega)
-        .where(
-            Entrega.id == entrega_id,
-            Entrega.cerrada.is_(False),
-            or_(
-                Entrega.procesando.is_(False),
-                Entrega.procesando_desde.is_(None),
-                Entrega.procesando_desde < reserva_caducada,
-            ),
-        )
-        .values(procesando=True, procesando_desde=ahora)
-    )
-    db.commit()
-    return resultado.rowcount == 1
+    """Compatibilidad: reserva con token, aunque solo devuelve si se adquirió."""
+    return reservar_entrega(db, entrega_id, ahora, caducidad_segundos) is not None
 
 
 def liberar_entrega(db: Session, entrega_id: int) -> None:
-    db.execute(
-        update(Entrega)
-        .where(Entrega.id == entrega_id, Entrega.cerrada.is_(False))
-        .values(procesando=False, procesando_desde=None)
-    )
-    db.commit()
+    liberar_reserva(db, entrega_id)
 
 
 def cargar_preguntas_y_casos(
@@ -252,8 +239,7 @@ def guardar_calificacion(
     calificacion.nota_global = nota_global
     calificacion.preguntas_pendientes = preguntas_pendientes
     calificacion.desglose_json = json.dumps(desglose, ensure_ascii=False)
-    db.commit()
-    db.refresh(calificacion)
+    db.flush()
     return calificacion
 
 
@@ -268,8 +254,7 @@ def cerrar_entrega(
     entrega.cerrada = True
     entrega.procesando = False
     entrega.procesando_desde = None
-    db.commit()
-    db.refresh(entrega)
+    db.flush()
     return entrega
 
 
@@ -311,6 +296,7 @@ def guardar_evidencia(
     tipo: str,
     mime_type: str,
     nombre_archivo: str,
+    duracion_ms: int,
     contenido: bytes,
 ) -> EvidenciaAuditoria:
     evidencia = EvidenciaAuditoria(
@@ -319,6 +305,7 @@ def guardar_evidencia(
         mime_type=mime_type,
         nombre_archivo=nombre_archivo,
         tamano_bytes=len(contenido),
+        duracion_ms=duracion_ms,
         contenido=contenido,
     )
     db.add(evidencia)
@@ -329,6 +316,19 @@ def guardar_evidencia(
 
 def obtener_evidencia(db: Session, evidencia_id: int) -> EvidenciaAuditoria | None:
     return db.get(EvidenciaAuditoria, evidencia_id)
+
+
+def registrar_acceso_evidencia(
+    db: Session, evidencia_id: int, profesor_id: int, accion: str = "descarga"
+) -> None:
+    db.add(
+        AccesoEvidencia(
+            evidencia_id=evidencia_id,
+            profesor_id=profesor_id,
+            accion=accion,
+        )
+    )
+    db.commit()
 
 
 def listar_entregas_para_profesor(

@@ -328,6 +328,25 @@ pre {
   background: var(--fondo);
 }
 
+.estado-respuestas {
+  display: grid;
+  gap: 4px;
+}
+
+#estado-autosalvado {
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+#estado-autosalvado[data-estado='error'] {
+  color: var(--error);
+  font-weight: 700;
+}
+
+#estado-autosalvado[data-estado='guardando'] {
+  color: var(--acento);
+}
+
 .tabla-docente {
   overflow: auto;
 }

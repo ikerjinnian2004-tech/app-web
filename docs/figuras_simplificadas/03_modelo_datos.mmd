@@ -1,0 +1,34 @@
+flowchart LR
+  usuario["Usuario"]
+  examen["Examen"]
+  version["Version de examen"]
+  entrega["Entrega"]
+  asignada["Pregunta asignada"]
+  respuesta["Respuesta"]
+  nota["Calificacion"]
+  revision["Revision manual"]
+  evento["Evento"]
+  evidencia["Evidencia"]
+  usuario -->|"realiza"| entrega
+  examen -->|"versiona"| version
+  examen -->|"origina"| entrega
+  entrega -->|"congela"| asignada
+  entrega -->|"contiene"| respuesta
+  entrega -->|"1 a 1"| nota
+  entrega -->|"audita"| revision
+  entrega -->|"registra"| evento
+  evento -->|"adjunta"| evidencia
+  classDef ejecutado fill:#dbf5ee,stroke:#0f766e,color:#172033;
+  classDef configurado fill:#fff2cc,stroke:#b45309,color:#172033;
+  classDef no_validado fill:#fee2e2,stroke:#b42318,color:#172033;
+  classDef frontera fill:#e0e7ff,stroke:#4338ca,color:#172033;
+  class usuario ejecutado;
+  class examen ejecutado;
+  class version ejecutado;
+  class entrega ejecutado;
+  class asignada ejecutado;
+  class respuesta ejecutado;
+  class nota ejecutado;
+  class revision ejecutado;
+  class evento ejecutado;
+  class evidencia ejecutado;

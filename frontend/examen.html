@@ -20,11 +20,21 @@
   </header>
 
   <main class="contenedor-ancho">
+    <section class="estado-permisos" aria-labelledby="titulo-permisos">
+      <div>
+        <h2 id="titulo-permisos">Supervision multimedia</h2>
+        <p id="estado-permisos" role="status" aria-live="polite">Comprobando pantalla, camara y microfono...</p>
+      </div>
+      <button id="reactivar-permisos" class="boton-secundario hidden" type="button">Reactivar permisos</button>
+    </section>
     <p id="aviso-auditoria" class="aviso hidden" role="status" aria-live="polite"></p>
     <form id="formulario-examen" class="lista-preguntas">
       <div id="preguntas"></div>
       <footer class="barra-envio">
-        <span id="contador-respuestas">0 respuestas</span>
+        <div class="estado-respuestas">
+          <span id="contador-respuestas">0 respuestas</span>
+          <span id="estado-autosalvado" role="status" aria-live="polite">Sin cambios pendientes</span>
+        </div>
         <button class="boton-principal" type="submit">Enviar prueba</button>
       </footer>
     </form>

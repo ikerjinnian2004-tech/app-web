@@ -28,6 +28,4 @@ def conflict(detail: str = "El recurso ya existe o ya fue procesado.") -> HTTPEx
 def payload_too_large(
     detail: str = "La petición supera el tamaño máximo permitido.",
 ) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=detail
-    )
+    return HTTPException(status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail=detail)

@@ -72,6 +72,21 @@ export function enviarEntrega(entregaId, respuestas, entregadoAutomaticamente = 
   });
 }
 
+export function obtenerBorradores(entregaId) {
+  return peticionApi(`/borradores/${entregaId}`);
+}
+
+export function guardarBorrador(entregaId, preguntaId, contenido, versionEsperada) {
+  return peticionApi(`/borradores/${entregaId}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      pregunta_id: preguntaId,
+      contenido,
+      version_esperada: versionEsperada,
+    }),
+  });
+}
+
 export function obtenerResultado(entregaId) {
   return peticionApi(`/entregas/${entregaId}/resultado`);
 }

@@ -1,0 +1,22 @@
+flowchart LR
+  browser["Navegador<br/>HTML, CSS y JS"]
+  api["API FastAPI"]
+  db["SQLite ejecutado<br/>PostgreSQL configurado"]
+  grader["Motor de evaluacion"]
+  worker["Adaptador Docker"]
+  container["Contenedor efimero"]
+  browser -->|"HTTPS / JSON"| api
+  api -->|"SQLAlchemy"| db
+  api -->|"respuestas"| grader
+  grader -->|"codigo validado"| worker
+  worker -->|"Docker API"| container
+  classDef ejecutado fill:#dbf5ee,stroke:#0f766e,color:#172033;
+  classDef configurado fill:#fff2cc,stroke:#b45309,color:#172033;
+  classDef no_validado fill:#fee2e2,stroke:#b42318,color:#172033;
+  classDef frontera fill:#e0e7ff,stroke:#4338ca,color:#172033;
+  class browser ejecutado;
+  class api ejecutado;
+  class db configurado;
+  class grader ejecutado;
+  class worker configurado;
+  class container no_validado;

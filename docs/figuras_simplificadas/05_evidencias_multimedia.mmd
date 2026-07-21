@@ -1,0 +1,28 @@
+flowchart LR
+  consent["Consentimiento"]
+  auth["Autorizacion previa"]
+  streams["Flujos activos"]
+  event["Cambio de pestana"]
+  clip["Clip <= 15 s"]
+  validate["MIME, firma, bytes"]
+  store["Almacenamiento BLOB"]
+  review["Revision docente<br/>y log de acceso"]
+  consent -->|"accion"| auth
+  auth -->|"permiso"| streams
+  streams -->|"blur"| event
+  event -->|"MediaRecorder"| clip
+  clip -->|"upload"| validate
+  validate -->|"aceptada"| store
+  store -->|"rol profesor"| review
+  classDef ejecutado fill:#dbf5ee,stroke:#0f766e,color:#172033;
+  classDef configurado fill:#fff2cc,stroke:#b45309,color:#172033;
+  classDef no_validado fill:#fee2e2,stroke:#b42318,color:#172033;
+  classDef frontera fill:#e0e7ff,stroke:#4338ca,color:#172033;
+  class consent ejecutado;
+  class auth ejecutado;
+  class streams ejecutado;
+  class event ejecutado;
+  class clip ejecutado;
+  class validate ejecutado;
+  class store ejecutado;
+  class review ejecutado;

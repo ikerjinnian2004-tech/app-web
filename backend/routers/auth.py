@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from backend.crud import obtener_o_crear_usuario_permitido
+from backend.config import Settings, get_settings
 from backend.database import get_db
 from backend.datos_iniciales import (
     buscar_usuario_en_semilla,
@@ -16,7 +17,13 @@ router = APIRouter()
 
 
 @router.post("/acceder", response_model=AccesoResponse)
-def acceder(request: AccesoRequest, db: Session = Depends(get_db)) -> AccesoResponse:
+def acceder(
+    request: AccesoRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> AccesoResponse:
+    if not settings.demo_auth_enabled:
+        raise forbidden("El acceso de demostración está deshabilitado.")
     correo = normalizar_correo(str(request.correo_institucional))
     if not validar_dominio_institucional(request.rol, correo):
         raise forbidden("El correo no pertenece al dominio institucional esperado.")

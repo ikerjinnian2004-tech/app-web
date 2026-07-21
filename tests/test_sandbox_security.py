@@ -116,13 +116,14 @@ def test_runner_docker_aplica_aislamiento_y_limpia_contenedor(
 
     class ContenedorFalso:
         eliminado = False
+        id = "contenedor-prueba"
 
         def wait(self, timeout: int) -> dict[str, int]:
             assert timeout == 2
             return {"StatusCode": 0}
 
         def logs(self, **kwargs: bool) -> bytes:
-            return b"ok"
+            return b"salida" if kwargs.get("stdout") else b"error"
 
         def remove(self, force: bool) -> None:
             assert force is True
@@ -152,4 +153,16 @@ def test_runner_docker_aplica_aislamiento_y_limpia_contenedor(
     assert llamadas[0]["cap_drop"] == ["ALL"]
     assert llamadas[0]["security_opt"] == ["no-new-privileges:true"]
     assert llamadas[0]["user"] == "65534:65534"
+    assert llamadas[0]["memswap_limit"] == llamadas[0]["mem_limit"]
+    assert llamadas[0]["pids_limit"] > 0
+    assert llamadas[0]["ulimits"][0].name == "nofile"
+    assert llamadas[0]["environment"] == {
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    assert "volumes" not in llamadas[0]
+    assert resultado["stdout"] == "salida"
+    assert resultado["stderr"] == "error"
+    assert resultado["contenedor_id"] == "contenedor-prueba"
+    assert resultado["limpieza_completada"] is True
     assert contenedor.eliminado is True

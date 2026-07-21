@@ -1,5 +1,6 @@
 # Entorno local
 .venv/
+.venv-*/
 venv/
 env/
 .env
@@ -18,22 +19,38 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.tox/
+.nox/
+.hypothesis/
 htmlcov/
 .coverage
+.coverage.*
 coverage.xml
 
 # Bases y logs locales
 *.db
 *.db-wal
 *.db-shm
+*.db-journal
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite-journal
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 *.log
 logs/
 tmp/
 output/
+artifacts/
+EVIDENCIAS_MEMORIA_TFG/
+/EVIDENCIAS_MEMORIA_TFG.zip
+/Entregable TFG.pdf
+/Material de la memoria.zip
+/Pegado text.txt
+/*.zip
+/*.pdf
 
 # Build y dependencias externas
 dist/
@@ -46,3 +63,4 @@ node_modules/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+desktop.ini

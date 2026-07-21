@@ -2,21 +2,21 @@
   "usuarios": {
     "alumnado": [
       {
-        "nombre": "Iker Jinnian",
-        "apellidos": "Blanco Moya",
-        "correo": "ikerjinnian.blanco@alu.uclm.es"
+        "nombre": "Alumna",
+        "apellidos": "Demostración",
+        "correo": "alumna.demo@alu.uclm.es"
       }
     ],
     "profesorado": [
       {
-        "nombre": "Juan",
-        "apellidos": "Moreno García",
-        "correo": "juan.moreno@uclm.es"
+        "nombre": "Profesor",
+        "apellidos": "Demostración",
+        "correo": "profesor.demo@uclm.es"
       },
       {
-        "nombre": "David",
-        "apellidos": "Muñoz Valero",
-        "correo": "david.munoz@uclm.es"
+        "nombre": "Docente",
+        "apellidos": "Responsable Demo",
+        "correo": "docente.demo@uclm.es"
       }
     ]
   },
@@ -27,7 +27,7 @@
     "estado": "publicado",
     "modo_calificacion": "todo_o_nada_por_pregunta",
     "version": 1,
-    "profesor_principal": "david.munoz@uclm.es",
+    "profesor_principal": "docente.demo@uclm.es",
     "seleccion_por_tipo": {
       "rellenar_huecos": 1,
       "corregir_codigo": 1,

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<defs><marker id="flecha" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker></defs>
+<text x="60" y="65" font-family="Arial" font-size="34" font-weight="700" fill="#172033">Modelo de datos esencial</text>
+<line x1="280" y1="145" x2="400" y2="375" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="600" y1="145" x2="720" y2="145" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="500" y1="190" x2="500" y2="330" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="400" y1="375" x2="310" y2="605" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="500" y1="420" x2="480" y2="560" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="600" y1="375" x2="650" y2="605" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="600" y1="375" x2="920" y2="605" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="600" y1="375" x2="1180" y2="375" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1270" y1="420" x2="1270" y2="560" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<rect x="80" y="100" width="200" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="180.0" y="152.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Usuario</text>
+<rect x="400" y="100" width="200" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="500.0" y="152.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Examen</text>
+<rect x="720" y="100" width="230" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="835.0" y="152.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Version de examen</text>
+<rect x="400" y="330" width="200" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="500.0" y="382.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Entrega</text>
+<rect x="80" y="560" width="230" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="195.0" y="612.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Pregunta asignada</text>
+<rect x="380" y="560" width="200" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="480.0" y="612.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Respuesta</text>
+<rect x="650" y="560" width="200" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="750.0" y="612.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Calificacion</text>
+<rect x="920" y="560" width="220" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1030.0" y="612.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Revision manual</text>
+<rect x="1180" y="330" width="180" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1270.0" y="382.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Evento</text>
+<rect x="1180" y="560" width="180" height="90" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1270.0" y="612.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Evidencia</text>
+<rect x="60" y="835" width="34" height="24" rx="5" fill="#dbf5ee" stroke="#0f172a"/>
+<text x="104" y="854" font-family="Arial" font-size="17" fill="#172033">Ejecutado</text>
+<rect x="320" y="835" width="34" height="24" rx="5" fill="#fff2cc" stroke="#0f172a"/>
+<text x="364" y="854" font-family="Arial" font-size="17" fill="#172033">Configurado</text>
+<rect x="580" y="835" width="34" height="24" rx="5" fill="#fee2e2" stroke="#0f172a"/>
+<text x="624" y="854" font-family="Arial" font-size="17" fill="#172033">No validado</text>
+<rect x="840" y="835" width="34" height="24" rx="5" fill="#e0e7ff" stroke="#0f172a"/>
+<text x="884" y="854" font-family="Arial" font-size="17" fill="#172033">Frontera</text>
+</svg>

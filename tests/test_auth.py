@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from jose import jwt
+import jwt
 
 from backend.security import (
     ALGORITHM,
@@ -15,12 +15,12 @@ def test_acceso_alumno_y_profesor(client, examen_activo) -> None:
         "/auth/acceder",
         json={
             "rol": "alumno",
-            "correo_institucional": "IKERJINNIAN.BLANCO@ALU.UCLM.ES",
+            "correo_institucional": "ALUMNA.DEMO@ALU.UCLM.ES",
         },
     )
     profesor = client.post(
         "/auth/acceder",
-        json={"rol": "profesor", "correo_institucional": "david.munoz@uclm.es"},
+        json={"rol": "profesor", "correo_institucional": "docente.demo@uclm.es"},
     )
 
     assert alumno.status_code == 200
@@ -40,7 +40,10 @@ def test_rechaza_correo_fuera_de_semilla(client, examen_activo) -> None:
 def test_rechaza_dominio_incorrecto(client, examen_activo) -> None:
     response = client.post(
         "/auth/acceder",
-        json={"rol": "alumno", "correo_institucional": "iker.blanco@uclm.es"},
+        json={
+            "rol": "alumno",
+            "correo_institucional": "persona.noautorizada@uclm.es",
+        },
     )
     assert response.status_code == 403
 

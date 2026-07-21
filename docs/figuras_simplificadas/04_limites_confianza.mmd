@@ -1,0 +1,22 @@
+flowchart LR
+  browser["Navegador<br/>NO CONFIABLE"]
+  api["API"]
+  db["Base de datos"]
+  worker["Trabajador / adaptador"]
+  container["Contenedor<br/>red bloqueada"]
+  host["Host dedicado o VM"]
+  browser -->|"entrada validada"| api
+  api -->|"credencial limitada"| db
+  api -->|"contrato interno"| worker
+  worker -->|"opciones fijas"| container
+  container -->|"frontera runtime"| host
+  classDef ejecutado fill:#dbf5ee,stroke:#0f766e,color:#172033;
+  classDef configurado fill:#fff2cc,stroke:#b45309,color:#172033;
+  classDef no_validado fill:#fee2e2,stroke:#b42318,color:#172033;
+  classDef frontera fill:#e0e7ff,stroke:#4338ca,color:#172033;
+  class browser no_validado;
+  class api ejecutado;
+  class db ejecutado;
+  class worker configurado;
+  class container no_validado;
+  class host frontera;

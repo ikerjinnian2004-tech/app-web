@@ -3,8 +3,18 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary
-from sqlalchemy import String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -165,6 +175,17 @@ class Entrega(Base):
     """Intento de examen de un alumno."""
 
     __tablename__ = "entregas"
+    __table_args__ = (
+        UniqueConstraint("alumno_id", "examen_id", name="uq_entrega_alumno_examen"),
+        CheckConstraint(
+            "NOT cerrada OR (hora_entrega IS NOT NULL AND NOT procesando)",
+            name="ck_entrega_cierre_completo",
+        ),
+        CheckConstraint(
+            "NOT procesando OR (reserva_id IS NOT NULL AND reserva_expira_en IS NOT NULL)",
+            name="ck_entrega_reserva_completa",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     alumno_id: Mapped[int] = mapped_column(
@@ -194,6 +215,12 @@ class Entrega(Base):
     procesando_desde: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True
     )
+    reserva_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    reserva_expira_en: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
+    version_estado: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    hash_envio: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     alumno: Mapped["UsuarioPermitido"] = relationship(
         "UsuarioPermitido", back_populates="entregas"
@@ -223,6 +250,11 @@ class Entrega(Base):
     )
     revisiones_manuales: Mapped[list["RevisionManual"]] = relationship(
         "RevisionManual",
+        back_populates="entrega",
+        cascade="all, delete-orphan",
+    )
+    borradores: Mapped[list["BorradorRespuesta"]] = relationship(
+        "BorradorRespuesta",
         back_populates="entrega",
         cascade="all, delete-orphan",
     )
@@ -277,14 +309,47 @@ class RespuestaAlumno(Base):
     )
 
 
+class BorradorRespuesta(Base):
+    """Respuesta parcial autoritativa que todavía no forma parte del envío."""
+
+    __tablename__ = "borradores_respuestas"
+    __table_args__ = (
+        UniqueConstraint("entrega_id", "pregunta_id", name="uq_borrador_entrega"),
+        CheckConstraint("version >= 1", name="ck_borrador_version_positiva"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    entrega_id: Mapped[int] = mapped_column(
+        ForeignKey("entregas.id", ondelete="CASCADE"), nullable=False
+    )
+    pregunta_id: Mapped[int] = mapped_column(ForeignKey("preguntas.id"), nullable=False)
+    contenido: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now, nullable=False
+    )
+
+    entrega: Mapped["Entrega"] = relationship("Entrega", back_populates="borradores")
+
+
 class Calificacion(Base):
     """Resultado calculado para una entrega cerrada."""
 
     __tablename__ = "calificaciones"
+    __table_args__ = (
+        CheckConstraint(
+            "nota_global >= 0 AND nota_global <= 10",
+            name="ck_calificacion_nota_rango",
+        ),
+        CheckConstraint(
+            "preguntas_pendientes >= 0",
+            name="ck_calificacion_pendientes_no_negativas",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     entrega_id: Mapped[int] = mapped_column(
-        ForeignKey("entregas.id"), unique=True, nullable=False
+        ForeignKey("entregas.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     nota_global: Mapped[float] = mapped_column(Float, nullable=False)
     preguntas_pendientes: Mapped[int] = mapped_column(
@@ -373,6 +438,7 @@ class EvidenciaAuditoria(Base):
     mime_type: Mapped[str] = mapped_column(String(120), nullable=False)
     nombre_archivo: Mapped[str] = mapped_column(String(180), nullable=False)
     tamano_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    duracion_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     contenido: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     creada_en: Mapped[datetime] = mapped_column(
         DateTime, default=utc_now, nullable=False
@@ -380,4 +446,25 @@ class EvidenciaAuditoria(Base):
 
     evento: Mapped["EventoAuditoria"] = relationship(
         "EventoAuditoria", back_populates="evidencias"
+    )
+    accesos: Mapped[list["AccesoEvidencia"]] = relationship(
+        "AccesoEvidencia", cascade="all, delete-orphan"
+    )
+
+
+class AccesoEvidencia(Base):
+    """Trazabilidad minima de las descargas docentes de una evidencia."""
+
+    __tablename__ = "accesos_evidencias"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    evidencia_id: Mapped[int] = mapped_column(
+        ForeignKey("evidencias_auditoria.id", ondelete="CASCADE"), nullable=False
+    )
+    profesor_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios_permitidos.id"), nullable=False
+    )
+    accion: Mapped[str] = mapped_column(String(30), nullable=False)
+    accedido_en: Mapped[datetime] = mapped_column(
+        DateTime, default=utc_now, nullable=False
     )

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import MetaData, inspect, text
 from sqlalchemy.engine import Connection, Engine
 
-VERSION_ESQUEMA = 6
+VERSION_ESQUEMA = 9
 
 COLUMNAS_EXAMEN = {
     "descripcion": "TEXT NOT NULL DEFAULT ''",
@@ -40,6 +40,15 @@ COLUMNAS_ENTREGA_CONCURRENTE = {
 }
 COLUMNAS_PERMISOS_EVIDENCIA = {
     "permisos_evidencia_verificados": "BOOLEAN NOT NULL DEFAULT FALSE",
+}
+COLUMNAS_RESERVA_IDENTIFICADA = {
+    "reserva_id": "VARCHAR(36) NULL",
+    "reserva_expira_en": "TIMESTAMP NULL",
+    "version_estado": "INTEGER NOT NULL DEFAULT 0",
+    "hash_envio": "VARCHAR(64) NULL",
+}
+COLUMNAS_EVIDENCIA_TRAZABLE = {
+    "duracion_ms": "INTEGER NOT NULL DEFAULT 0",
 }
 
 
@@ -127,6 +136,34 @@ def _aplicar_migracion_permisos(connection: Connection) -> None:
     _agregar_columnas(connection, "entregas", COLUMNAS_PERMISOS_EVIDENCIA)
 
 
+def _aplicar_migracion_integridad_entregas(connection: Connection) -> None:
+    _agregar_columnas(connection, "entregas", COLUMNAS_RESERVA_IDENTIFICADA)
+    if "entregas" not in inspect(connection).get_table_names():
+        return
+    duplicados = connection.execute(
+        text(
+            "SELECT alumno_id, examen_id, COUNT(*) AS cantidad "
+            "FROM entregas GROUP BY alumno_id, examen_id HAVING COUNT(*) > 1"
+        )
+    ).mappings()
+    duplicados = list(duplicados)
+    if duplicados:
+        raise RuntimeError(
+            "No se puede imponer la unicidad alumno/examen: existen entregas "
+            f"duplicadas que requieren revisión manual: {duplicados}"
+        )
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_entrega_alumno_examen_idx "
+            "ON entregas(alumno_id, examen_id)"
+        )
+    )
+
+
+def _aplicar_migracion_evidencias(connection: Connection) -> None:
+    _agregar_columnas(connection, "evidencias_auditoria", COLUMNAS_EVIDENCIA_TRAZABLE)
+
+
 def _asegurar_instantaneas_examen(connection: Connection) -> None:
     tablas = set(inspect(connection).get_table_names())
     if not {"examenes", "versiones_examen"}.issubset(tablas):
@@ -189,6 +226,9 @@ MIGRACIONES = (
     (4, "cierre_entrega_concurrente", _aplicar_migracion_concurrencia),
     (5, "permisos_evidencia_verificados", _aplicar_migracion_permisos),
     (6, "instantanea_inicial_examen", _asegurar_instantaneas_examen),
+    (7, "integridad_y_reserva_identificada", _aplicar_migracion_integridad_entregas),
+    (8, "borradores_respuestas_versionados", lambda _: None),
+    (9, "evidencias_limitadas_y_trazables", _aplicar_migracion_evidencias),
 )
 
 

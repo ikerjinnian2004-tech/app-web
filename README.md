@@ -1,11 +1,11 @@
 # Evaluador web de ejercicios de Python
 
-Prototipo de aplicación web desarrollada en un Trabajo Fin de Grado para crear, realizar y revisar pruebas de
+Prototipo de Trabajo Fin de Grado para crear, realizar y revisar pruebas de
 programación. La aplicación combina un backend FastAPI, persistencia SQLAlchemy y
 un frontend nativo HTML/CSS/JavaScript. La calificación automática es determinista;
 las respuestas abiertas quedan pendientes de revisión docente.
 
-## Qué tiene: 
+## Funcionalidad incluida
 
 - Acceso por rol y lista institucional de usuarios autorizados.
 - Consentimiento y comprobación obligatoria de permisos de pantalla, cámara y
@@ -23,7 +23,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 - Protección frente a reenvíos y procesamiento concurrente de una misma entrega.
 - Migraciones ligeras e idempotentes para evolucionar bases ya creadas.
 
-## Qué la conforma: 
+## Arquitectura
 
 | Componente | Tecnología | Responsabilidad |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 | Corrección | Python y casos de prueba | Evaluación determinista y desglose trazable |
 | Sandbox | Subproceso local o contenedor Docker | Límites de tiempo, salida, memoria, CPU y procesos |
 
-## Requisitos previos: 
+## Requisitos
 
 - Python 3.11 o superior.
 - `pip`.
@@ -42,7 +42,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 - Docker Desktop y Docker Compose, solo para PostgreSQL, despliegue en contenedores
   o sandbox aislado.
 
-## Arrancarla en local (PowerShell)
+## Puesta en marcha local (PowerShell)
 
 ```powershell
 python -m venv .venv
@@ -87,9 +87,9 @@ python -m http.server 5500
 
 | Rol | Nombre | Correo |
 | --- | --- | --- |
-| Alumnado | Iker Jinnian Blanco Moya | `ikerjinnian.blanco@alu.uclm.es` |
-| Profesorado | Juan Moreno García | `juan.moreno@uclm.es` |
-| Profesorado | David Muñoz Valero | `david.munoz@uclm.es` |
+| Alumnado | Alumna Demostración | `alumna.demo@alu.uclm.es` |
+| Profesorado | Profesor Demostración | `profesor.demo@uclm.es` |
+| Profesorado | Docente Responsable Demo | `docente.demo@uclm.es` |
 
 Los datos se mantienen en `backend/data/datos_iniciales.json`. Los correos se
 normalizan sin distinguir mayúsculas y minúsculas.
@@ -106,11 +106,12 @@ normalizan sin distinguir mayúsculas y minúsculas.
 7. Asigna una nota a la respuesta corta y guarda la revisión.
 8. Descarga el CSV para comprobar la exportación trazable.
 
-## Verificación: 
+## Verificación reproducible
 
 Con el entorno virtual activado:
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python -m compileall -q backend scripts tests
 python -m pytest -q
 python -m ruff check .
@@ -120,6 +121,28 @@ python scripts/simular_flujo_demo.py
 
 El script de demostración reinicia la base local, siembra los datos, completa un
 intento correcto y comprueba que la entrega aparece en el panel docente.
+
+La verificación portable completa, con cobertura de líneas y ramas, modelo de
+estados ejecutable y simulación integral, se concentra en un solo comando:
+
+```powershell
+python scripts/verificar_tfg.py
+```
+
+Las comprobaciones que necesitan infraestructura se activan de forma explícita:
+
+```powershell
+python scripts/verificar_tfg.py --postgresql
+python scripts/verificar_tfg.py --docker
+python scripts/verificar_tfg.py --navegador
+python scripts/verificar_tfg.py --seguridad
+```
+
+Consulta `MANUAL_EVIDENCIAS_TFG.md` para instalar desde cero, reproducir las
+capturas con datos ficticios y distinguir qué demuestra cada evidencia. El
+modelo de amenazas y las limitaciones de privacidad se conservan en
+`docs/seguridad/`; las figuras editables y listas para Overleaf están en
+`docs/figuras_simplificadas/`.
 
 Para validar Compose, primero debe existir `.env`:
 
@@ -158,5 +181,19 @@ backend/data/       usuarios, examen, banco y consentimiento iniciales
 frontend/           interfaz web nativa
 scripts/            reinicio de base y simulación integral
 tests/              pruebas unitarias, de integración, seguridad y concurrencia
+verification/       modelo ejecutable de estados del envío atómico
+docs/                auditoría, seguridad y diagramas editables
+artifacts/           evidencias locales generadas e ignoradas por Git
 .github/workflows/  integración continua
 ```
+
+## Límites del prototipo
+
+- No hay SSO ni contraseñas: la autenticación usa identidades sembradas para una
+  demostración controlada y se rechaza en modo producción.
+- El consentimiento requiere revisión jurídica antes de utilizar datos reales.
+- El runner por subproceso reduce riesgos, pero no sustituye el aislamiento fuerte
+  de contenedores en un entorno compartido.
+- Las migraciones incluidas cubren la evolución actual; una explotación prolongada
+  debería adoptar una herramienta como Alembic y una política formal de copias.
+- No se declara una licencia de software en este repositorio.

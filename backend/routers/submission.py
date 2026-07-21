@@ -8,12 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.crud import (
     cargar_preguntas_y_casos,
-    cerrar_entrega,
     get_entrega,
-    guardar_calificacion,
-    guardar_respuestas,
-    liberar_entrega,
-    reclamar_entrega,
 )
 from backend.database import get_db
 from backend.errors import bad_request, conflict, forbidden, not_found, request_timeout
@@ -21,6 +16,15 @@ from backend.grader import grade_entrega
 from backend.models import UsuarioPermitido
 from backend.schemas import SubmissionCreate, SubmissionResponse
 from backend.security import exigir_rol
+from backend.servicios_entregas import (
+    EntregaCerradaDuranteEnvio,
+    ReservaEntregaNoValida,
+    calcular_hash_envio,
+    construir_respuestas_temporales,
+    liberar_reserva,
+    persistir_envio_atomico,
+    reservar_entrega,
+)
 
 router = APIRouter()
 MARGEN_ENVIO_AUTOMATICO_SEGUNDOS = 10
@@ -58,8 +62,14 @@ def enviar_entrega(
         raise not_found("La entrega solicitada no existe.")
     if entrega.alumno_id != alumno.id:
         raise forbidden("No puedes enviar la entrega de otro alumno.")
+    respuestas = [respuesta.model_dump() for respuesta in request.respuestas]
+    hash_envio = calcular_hash_envio(respuestas, request.entregado_automaticamente)
     if entrega.cerrada:
         if entrega.calificacion is not None:
+            if entrega.hash_envio is not None and entrega.hash_envio != hash_envio:
+                raise conflict(
+                    "La entrega ya está cerrada con un contenido de envío distinto."
+                )
             return response_from_calificacion(entrega.id, entrega.calificacion)
         raise conflict("La entrega ya está cerrada.")
 
@@ -74,7 +84,6 @@ def enviar_entrega(
             "El servidor ha marcado esta entrega como fuera de tiempo."
         )
 
-    respuestas = [respuesta.model_dump() for respuesta in request.respuestas]
     ids_asignados = {
         asignacion.pregunta_id for asignacion in entrega.preguntas_asignadas
     }
@@ -83,44 +92,64 @@ def enviar_entrega(
         raise bad_request(
             "Debes enviar una única respuesta para cada pregunta asignada."
         )
-    if not reclamar_entrega(db, entrega.id, ahora):
+    entrega_id = entrega.id
+    reserva_id = reservar_entrega(db, entrega_id, ahora)
+    if reserva_id is None:
         db.expire_all()
-        actual = get_entrega(db, entrega.id)
+        actual = get_entrega(db, entrega_id)
         if actual is not None and actual.cerrada and actual.calificacion is not None:
+            if actual.hash_envio is not None and actual.hash_envio != hash_envio:
+                raise conflict(
+                    "La entrega ya está cerrada con un contenido de envío distinto."
+                )
             return response_from_calificacion(actual.id, actual.calificacion)
         raise conflict("La entrega se está procesando en otra petición.")
 
     try:
-        respuestas_guardadas = guardar_respuestas(db, entrega, respuestas)
-        preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega.id)
+        actual = get_entrega(db, entrega_id)
+        if actual is None:
+            raise ReservaEntregaNoValida("La entrega reservada ya no existe.")
+        preguntas, casos_por_pregunta = cargar_preguntas_y_casos(db, entrega_id)
         pesos_por_pregunta = {
             asignacion.pregunta_id: asignacion.peso
-            for asignacion in entrega.preguntas_asignadas
+            for asignacion in actual.preguntas_asignadas
         }
         resultado = grade_entrega(
-            respuestas_guardadas,
+            construir_respuestas_temporales(entrega_id, respuestas),
             preguntas,
             casos_por_pregunta,
             pesos_por_pregunta=pesos_por_pregunta,
-            modo_calificacion=entrega.modo_calificacion,
+            modo_calificacion=actual.modo_calificacion,
         )
-        calificacion = guardar_calificacion(
+        calificacion = persistir_envio_atomico(
             db,
-            entrega_id=entrega.id,
-            nota_global=float(resultado["nota_global"]),
-            preguntas_pendientes=int(resultado["preguntas_pendientes"]),
-            desglose=list(resultado["desglose"]),
-        )
-        cerrar_entrega(
-            db,
-            entrega,
+            entrega_id=entrega_id,
+            reserva_id=reserva_id,
+            respuestas=respuestas,
+            resultado=resultado,
             hora_entrega=utc_now_naive(),
             entregado_automaticamente=request.entregado_automaticamente,
+            hash_envio=hash_envio,
         )
+    except EntregaCerradaDuranteEnvio:
+        liberar_reserva(db, entrega_id, reserva_id)
+        db.expire_all()
+        actual = get_entrega(db, entrega_id)
+        if (
+            actual is not None
+            and actual.cerrada
+            and actual.calificacion is not None
+            and (actual.hash_envio is None or actual.hash_envio == hash_envio)
+        ):
+            return response_from_calificacion(actual.id, actual.calificacion)
+        raise conflict("La entrega ya fue confirmada por otra petición.")
+    except ReservaEntregaNoValida as exc:
+        liberar_reserva(db, entrega_id, reserva_id)
+        raise conflict(str(exc)) from exc
     except Exception:
-        liberar_entrega(db, entrega.id)
+        liberar_reserva(db, entrega_id, reserva_id)
         raise
-    return response_from_calificacion(entrega.id, calificacion)
+    return response_from_calificacion(entrega_id, calificacion)
 
 
 @router.get("/{entrega_id}/resultado", response_model=SubmissionResponse)

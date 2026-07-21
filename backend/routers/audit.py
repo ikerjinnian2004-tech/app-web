@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
@@ -60,6 +60,7 @@ async def subir_evidencia(
     evento_id: int = Form(...),
     tipo: str = Form(...),
     mime_type: str = Form(...),
+    duracion_ms: int = Form(..., ge=1),
     archivo: UploadFile = File(...),
     alumno: UsuarioPermitido = Depends(exigir_rol("alumno")),
     db: Session = Depends(get_db),
@@ -84,6 +85,8 @@ async def subir_evidencia(
     mime_declarado = mime_type or archivo.content_type or ""
     if mime_declarado not in MIME_EVIDENCIA:
         raise bad_request("El formato de evidencia no está permitido.")
+    if duracion_ms > settings.evidencia_duracion_segundos * 1000:
+        raise bad_request("La evidencia supera la duración máxima permitida.")
 
     bloques: list[bytes] = []
     tamano = 0
@@ -95,7 +98,14 @@ async def subir_evidencia(
     if tamano == 0:
         raise bad_request("La evidencia está vacía.")
     contenido = b"".join(bloques)
-    nombre_seguro = Path(archivo.filename or "evidencia.webm").name[:180]
+    es_webm = contenido.startswith(b"\x1aE\xdf\xa3")
+    es_mp4 = len(contenido) >= 12 and contenido[4:8] == b"ftyp"
+    if (mime_declarado in {"video/webm", "audio/webm"} and not es_webm) or (
+        mime_declarado == "video/mp4" and not es_mp4
+    ):
+        raise bad_request("El contenido no coincide con el formato declarado.")
+    extension = ".mp4" if mime_declarado == "video/mp4" else ".webm"
+    nombre_seguro = f"evidencia-{uuid4().hex}{extension}"
 
     evidencia = guardar_evidencia(
         db,
@@ -103,6 +113,7 @@ async def subir_evidencia(
         tipo=tipo,
         mime_type=mime_declarado,
         nombre_archivo=nombre_seguro,
+        duracion_ms=duracion_ms,
         contenido=contenido,
     )
     return EvidenciaResponse(ok=True, evidencia_id=evidencia.id)

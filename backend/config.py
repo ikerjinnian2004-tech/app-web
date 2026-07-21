@@ -1,6 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from pydantic import Field, field_validator
+from typing import Literal
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from typing_extensions import Annotated
 
@@ -13,6 +15,10 @@ class Settings(BaseSettings):
     database_url: str = Field(alias="DATABASE_URL")
     secret_key: str = Field(alias="SECRET_KEY")
     identity_hmac_key: str = Field(alias="IDENTITY_HMAC_KEY")
+    app_environment: Literal["development", "test", "production"] = Field(
+        default="development", alias="APP_ENVIRONMENT"
+    )
+    demo_auth_enabled: bool = Field(default=True, alias="DEMO_AUTH_ENABLED")
 
     exam_duration_minutes: int = Field(
         default=90, ge=1, le=480, alias="EXAM_DURATION_MINUTES"
@@ -54,6 +60,9 @@ class Settings(BaseSettings):
     evidencia_duracion_segundos: int = Field(
         default=15, ge=1, le=120, alias="EVIDENCIA_DURACION_SEGUNDOS"
     )
+    evidencia_retencion_dias: int = Field(
+        default=30, ge=1, le=3650, alias="EVIDENCIA_RETENCION_DIAS"
+    )
 
     allowed_origins: Annotated[list[str], NoDecode] = Field(alias="ALLOWED_ORIGINS")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -84,6 +93,19 @@ class Settings(BaseSettings):
                 "La clave debe tener al menos 32 caracteres y no usar el ejemplo."
             )
         return value
+
+    @model_validator(mode="after")
+    def validar_modo_despliegue(self) -> "Settings":
+        if self.app_environment != "production":
+            return self
+        errores: list[str] = []
+        if self.demo_auth_enabled:
+            errores.append("DEMO_AUTH_ENABLED debe ser false en producción")
+        if not self.sandbox_use_docker:
+            errores.append("SANDBOX_USE_DOCKER debe ser true en producción")
+        if errores:
+            raise ValueError("; ".join(errores))
+        return self
 
     @property
     def exam_duration_seconds(self) -> int:

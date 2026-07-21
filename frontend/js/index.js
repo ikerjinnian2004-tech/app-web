@@ -1,4 +1,5 @@
 import { acceder, iniciarExamen, obtenerConsentimiento } from './api.js';
+import { activarEvidencias, listarCamaras } from './flujos-evidencia.js';
 import { guardarExamen, guardarSesion, limpiarSesion } from './sesion.js';
 
 const formulario = document.getElementById('formulario-acceso');
@@ -6,30 +7,42 @@ const mensaje = document.getElementById('mensaje-acceso');
 const bloqueConsentimiento = document.getElementById('bloque-consentimiento');
 const textoConsentimiento = document.getElementById('texto-consentimiento');
 const aceptaGrabacion = document.getElementById('acepta-grabacion');
+const selectorCamara = document.getElementById('selector-camara');
 let consentimientoVersion = '';
 
-function detenerStream(stream) {
-  stream?.getTracks().forEach((pista) => pista.stop());
-}
-
 async function verificarPermisosEvidencia() {
-  if (!navigator.mediaDevices?.getDisplayMedia || !navigator.mediaDevices?.getUserMedia) {
-    return false;
-  }
-  let pantalla;
-  let camaraAudio;
   try {
-    pantalla = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-    camaraAudio = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    return pantalla.getVideoTracks().length > 0
-      && camaraAudio.getVideoTracks().length > 0
-      && camaraAudio.getAudioTracks().length > 0;
+    await activarEvidencias(selectorCamara.value);
+    await cargarCamaras();
+    return true;
   } catch {
     return false;
-  } finally {
-    detenerStream(pantalla);
-    detenerStream(camaraAudio);
   }
+}
+
+async function cargarCamaras() {
+  const seleccion = selectorCamara.value;
+  const camaras = await listarCamaras();
+  selectorCamara.innerHTML = '<option value="">Camara predeterminada</option>';
+  camaras.forEach((camara) => {
+    const opcion = document.createElement('option');
+    opcion.value = camara.id;
+    opcion.textContent = camara.etiqueta;
+    opcion.selected = camara.id === seleccion;
+    selectorCamara.append(opcion);
+  });
+}
+
+async function mostrarExamenSinCerrarFlujos() {
+  const response = await fetch('./examen.html', { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error('No se pudo abrir la pantalla del examen.');
+  }
+  const documento = new DOMParser().parseFromString(await response.text(), 'text/html');
+  document.title = documento.title;
+  document.body.innerHTML = documento.body.innerHTML;
+  window.history.pushState({}, '', './examen.html');
+  await import('./examen.js');
 }
 
 function rolSeleccionado() {
@@ -100,8 +113,13 @@ formulario?.addEventListener('submit', async (event) => {
     return;
   }
   guardarExamen(examen.datos);
-  window.location.href = './examen.html';
+  try {
+    await mostrarExamenSinCerrarFlujos();
+  } catch (error) {
+    mensaje.textContent = error.message;
+  }
 });
 
 actualizarConsentimiento();
 cargarConsentimiento();
+cargarCamaras();

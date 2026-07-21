@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - run: ruff check .
       - run: ruff format --check .
 
@@ -42,7 +42,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - run: python -m pytest tests/ -v
 
   security:
@@ -70,5 +70,96 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - run: python -m pytest tests/test_sandbox_security.py -v
+      - run: python -m pip_audit -r requirements.txt --progress-spinner off
+
+  browser:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-dev.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: python scripts/capturar_recorrido_navegador.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-navegador
+          path: artifacts/tfg-evidence/*/navegador
+
+  isolation:
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:///./ci.db
+      SECRET_KEY: ci-test-key-minimo-32-chars-xxxxxx
+      IDENTITY_HMAC_KEY: ci-hmac-key-minimo-32-caracteres-xxxx
+      SANDBOX_USE_DOCKER: 'true'
+      SANDBOX_IMAGE: evaluador-sandbox:ci
+      ALLOWED_ORIGINS: http://127.0.0.1:5500
+      RUN_DOCKER_SANDBOX_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-dev.txt
+      - run: docker build -f Dockerfile.sandbox -t evaluador-sandbox:ci .
+      - run: python scripts/verificar_sandbox_docker.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidencia-sandbox
+          path: artifacts/tfg-evidence/docker
+
+  postgresql:
+    needs: quality
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.13-alpine@sha256:1414298ea93186123a6dcf872f778ba3bd2347edcbd2f31aa7bb2d9814ff5393
+        env:
+          POSTGRES_DB: evaluador_test
+          POSTGRES_USER: evaluador_test
+          POSTGRES_PASSWORD: evaluador_test_local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U evaluador_test -d evaluador_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      POSTGRES_TEST_URL: postgresql+psycopg2://evaluador_test:evaluador_test_local@127.0.0.1:5432/evaluador_test
+      ALLOW_POSTGRES_TEST_RESET: '1'
+      DATABASE_URL: postgresql+psycopg2://evaluador_test:evaluador_test_local@127.0.0.1:5432/evaluador_test
+      SECRET_KEY: ci-test-key-minimo-32-chars-xxxxxx
+      IDENTITY_HMAC_KEY: ci-hmac-key-minimo-32-caracteres-xxxx
+      ALLOWED_ORIGINS: http://127.0.0.1:5500
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python scripts/verificar_postgresql.py
+
+  evidence:
+    needs: [test, security, browser, isolation, postgresql]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements-dev.txt
+      - run: python scripts/verificar_tfg.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evidencia-portable
+          path: artifacts/tfg-evidence

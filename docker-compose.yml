@@ -6,7 +6,7 @@ services:
     ports:
       - '8000:8000'
     env_file:
-      - .env
+      - ${ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgresql+psycopg2://evaluador:evaluador@db:5432/evaluador
       WEB_CONCURRENCY: 2
@@ -22,7 +22,7 @@ services:
       retries: 5
 
   db:
-    image: postgres:15-alpine
+    image: postgres:15.13-alpine@sha256:1414298ea93186123a6dcf872f778ba3bd2347edcbd2f31aa7bb2d9814ff5393
     environment:
       POSTGRES_DB: evaluador
       POSTGRES_USER: evaluador
@@ -36,7 +36,7 @@ services:
       retries: 5
 
   frontend:
-    image: nginx:alpine
+    image: nginx:1.28.3-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     ports:

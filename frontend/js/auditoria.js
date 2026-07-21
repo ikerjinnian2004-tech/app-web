@@ -1,26 +1,26 @@
 import { registrarEventoAuditoria, subirEvidencia } from './api.js';
+import { construirFlujoEvidencia } from './flujos-evidencia.js';
 
-const DURACION_EVIDENCIA_MS = 15000;
+const DURACION_EVIDENCIA_MS = 14000;
 let grabando = false;
 
-function detenerPistas(stream) {
-  stream.getTracks().forEach((track) => track.stop());
+function mimeGrabacionSoportado() {
+  const candidatos = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  return candidatos.find((mime) => MediaRecorder.isTypeSupported(mime)) || '';
 }
 
-async function construirStreamEvidencia() {
-  const pantalla = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  const camaraAudio = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  const pistas = [...pantalla.getTracks(), ...camaraAudio.getTracks()];
-  return new MediaStream(pistas);
-}
-
-async function enviarBlob(eventoId, blob) {
+async function enviarBlob(eventoId, blob, duracionMs) {
   const formData = new FormData();
   formData.append('evento_id', String(eventoId));
   formData.append('tipo', 'pantalla_camara_audio');
-  formData.append('mime_type', blob.type || 'video/webm');
+  formData.append('mime_type', (blob.type || 'video/webm').split(';')[0]);
+  formData.append('duracion_ms', String(duracionMs));
   formData.append('archivo', blob, `evidencia-${eventoId}.webm`);
-  await subirEvidencia(formData);
+  return subirEvidencia(formData);
 }
 
 async function grabarEvidencia(eventoId, avisar) {
@@ -31,29 +31,38 @@ async function grabarEvidencia(eventoId, avisar) {
   grabando = true;
   let stream;
   try {
-    stream = await construirStreamEvidencia();
+    stream = construirFlujoEvidencia();
+    if (!stream) {
+      throw new Error('Los flujos de evidencia ya no estan activos.');
+    }
     const fragmentos = [];
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const inicioGrabacion = performance.now();
+    const mimeType = mimeGrabacionSoportado();
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
     recorder.addEventListener('dataavailable', (event) => {
       if (event.data.size > 0) {
         fragmentos.push(event.data);
       }
     });
     recorder.addEventListener('stop', () => {
-      const blob = new Blob(fragmentos, { type: 'video/webm' });
-      enviarBlob(eventoId, blob).finally(() => {
-        detenerPistas(stream);
-        grabando = false;
-        avisar('Evidencia adjuntada al evento de auditoria.');
-      });
+      const blob = new Blob(fragmentos, { type: recorder.mimeType || 'video/webm' });
+      const duracionMs = Math.max(1, Math.round(performance.now() - inicioGrabacion));
+      enviarBlob(eventoId, blob, duracionMs)
+        .then((response) => {
+          avisar(response.ok
+            ? 'Evidencia adjuntada al evento de auditoria.'
+            : 'El evento se registro, pero la evidencia fue rechazada.');
+        })
+        .finally(() => {
+          grabando = false;
+        });
     });
     recorder.start();
     avisar('Grabando evidencia breve asociada al evento.');
     window.setTimeout(() => recorder.stop(), DURACION_EVIDENCIA_MS);
   } catch {
-    if (stream) {
-      detenerPistas(stream);
-    }
     grabando = false;
     await registrarEventoAuditoria('EVIDENCIA_DENEGADA', { evento_origen_id: eventoId });
     avisar('Evento registrado sin evidencia adjunta.');

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<defs><marker id="flecha" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker></defs>
+<text x="60" y="65" font-family="Arial" font-size="34" font-weight="700" fill="#172033">Envio final: calculo fuera y persistencia atomica</text>
+<line x1="220" y1="350" x2="270" y2="350" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="480" y1="350" x2="530" y2="350" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="780" y1="350" x2="830" y2="350" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1060" y1="350" x2="1110" y2="270" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1370" y1="270" x2="1410" y2="270" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1060" y1="350" x2="1110" y2="550" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<rect x="40" y="300" width="180" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="130.0" y="357.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Alumnado</text>
+<rect x="270" y="300" width="210" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="375.0" y="343.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">A. Reserva breve</text>
+<text x="375.0" y="371.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">COMMIT</text>
+<rect x="530" y="300" width="250" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="655.0" y="343.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">B. Calculo sandbox</text>
+<text x="655.0" y="371.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">sin transaccion SQL</text>
+<rect x="830" y="300" width="230" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="945.0" y="343.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">C. BEGIN</text>
+<text x="945.0" y="371.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">bloqueo y validacion</text>
+<rect x="1110" y="220" width="260" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1240.0" y="263.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Respuestas + nota</text>
+<text x="1240.0" y="291.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">+ cierre</text>
+<rect x="1410" y="220" width="150" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1485.0" y="277.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">COMMIT</text>
+<rect x="1110" y="500" width="260" height="100" rx="14" fill="#e0e7ff" stroke="#0f172a" stroke-width="2"/>
+<text x="1240.0" y="543.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Fallo precommit</text>
+<text x="1240.0" y="571.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">ROLLBACK</text>
+<rect x="60" y="835" width="34" height="24" rx="5" fill="#dbf5ee" stroke="#0f172a"/>
+<text x="104" y="854" font-family="Arial" font-size="17" fill="#172033">Ejecutado</text>
+<rect x="320" y="835" width="34" height="24" rx="5" fill="#fff2cc" stroke="#0f172a"/>
+<text x="364" y="854" font-family="Arial" font-size="17" fill="#172033">Configurado</text>
+<rect x="580" y="835" width="34" height="24" rx="5" fill="#fee2e2" stroke="#0f172a"/>
+<text x="624" y="854" font-family="Arial" font-size="17" fill="#172033">No validado</text>
+<rect x="840" y="835" width="34" height="24" rx="5" fill="#e0e7ff" stroke="#0f172a"/>
+<text x="884" y="854" font-family="Arial" font-size="17" fill="#172033">Frontera</text>
+</svg>

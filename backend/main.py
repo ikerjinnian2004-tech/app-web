@@ -14,8 +14,9 @@ from backend.datos_iniciales import (
     obtener_version_consentimiento,
 )
 from backend.logging_config import setup_logging
-from backend.routers import admin, audit, auth, exam, submission
+from backend.routers import admin, audit, auth, drafts, exam, submission
 from backend.schemas import ConsentimientoResponse, HealthResponse
+from backend.validacion_arranque import validar_arranque
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -25,6 +26,13 @@ APP_VERSION = "2.0.0"
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging(settings.log_level)
+    validar_arranque(settings)
+    logger.info(
+        "Modo de aplicación: %s; autenticación de demostración: %s; runner Docker: %s",
+        settings.app_environment,
+        "habilitada" if settings.demo_auth_enabled else "deshabilitada",
+        "habilitado" if settings.sandbox_use_docker else "deshabilitado",
+    )
     create_tables()
     logger.info("Base de datos lista")
     yield
@@ -58,6 +66,7 @@ async def cabeceras_seguridad(request: Request, call_next):  # noqa: ANN001
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(exam.router, prefix="/examen", tags=["examen"])
 app.include_router(submission.router, prefix="/entregas", tags=["entregas"])
+app.include_router(drafts.router, prefix="/borradores", tags=["borradores"])
 app.include_router(audit.router, prefix="/auditoria", tags=["auditoria"])
 app.include_router(admin.router, prefix="/profesor", tags=["profesor"])
 

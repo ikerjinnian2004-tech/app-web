@@ -4,7 +4,7 @@ import json
 import os
 
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -184,7 +184,7 @@ def acceder_alumno(client: TestClient) -> dict[str, str]:
         "/auth/acceder",
         json={
             "rol": "alumno",
-            "correo_institucional": "ikerjinnian.blanco@alu.uclm.es",
+            "correo_institucional": "alumna.demo@alu.uclm.es",
         },
     )
     assert response.status_code == 200
@@ -194,7 +194,7 @@ def acceder_alumno(client: TestClient) -> dict[str, str]:
 def acceder_profesor(client: TestClient) -> dict[str, str]:
     response = client.post(
         "/auth/acceder",
-        json={"rol": "profesor", "correo_institucional": "david.munoz@uclm.es"},
+        json={"rol": "profesor", "correo_institucional": "docente.demo@uclm.es"},
     )
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['token']}"}

@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
@@ -53,7 +53,7 @@ def verificar_token(token: str) -> dict | None:
             audience=TOKEN_AUDIENCE,
             issuer=TOKEN_ISSUER,
         )
-    except JWTError:
+    except jwt.PyJWTError:
         return None
 
 

@@ -12,7 +12,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
-from backend.crud import get_entrega, listar_entregas_para_profesor, obtener_evidencia
+from backend.crud import (
+    get_entrega,
+    listar_entregas_para_profesor,
+    obtener_evidencia,
+    registrar_acceso_evidencia,
+)
 from backend.database import get_db
 from backend.errors import bad_request, conflict, not_found
 from backend.models import (
@@ -728,12 +733,13 @@ def obtener_estadisticas(
 @router.get("/evidencias/{evidencia_id}")
 def descargar_evidencia(
     evidencia_id: int,
-    _: UsuarioPermitido = Depends(exigir_rol("profesor")),
+    profesor: UsuarioPermitido = Depends(exigir_rol("profesor")),
     db: Session = Depends(get_db),
 ) -> Response:
     evidencia = obtener_evidencia(db, evidencia_id)
     if evidencia is None:
         raise not_found("La evidencia solicitada no existe.")
+    registrar_acceso_evidencia(db, evidencia.id, profesor.id)
     return Response(
         content=evidencia.contenido,
         media_type=evidencia.mime_type,

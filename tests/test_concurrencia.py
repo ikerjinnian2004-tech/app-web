@@ -1,13 +1,23 @@
 from concurrent.futures import ThreadPoolExecutor
+import json
+import random
 from datetime import timedelta
 from threading import Barrier
 
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.crud import liberar_entrega, reclamar_entrega
+from backend.crud import (
+    crear_entrega,
+    get_examen_activo,
+    get_ultima_entrega,
+    liberar_entrega,
+    reclamar_entrega,
+    seleccionar_preguntas,
+)
 from backend.database import Base
-from backend.models import Entrega, Examen, UsuarioPermitido, utc_now
+from backend.models import Entrega, Examen, Pregunta, UsuarioPermitido, utc_now
 
 
 def crear_entrega_compartida(tmp_path) -> tuple[sessionmaker, int]:
@@ -71,6 +81,8 @@ def test_reserva_caducada_se_recupera_y_puede_liberarse(tmp_path) -> None:
         assert entrega is not None
         entrega.procesando = True
         entrega.procesando_desde = utc_now() - timedelta(minutes=5)
+        entrega.reserva_id = "reserva-caducada"
+        entrega.reserva_expira_en = utc_now() - timedelta(minutes=4)
         db.commit()
 
     with sesiones() as db:
@@ -80,3 +92,90 @@ def test_reserva_caducada_se_recupera_y_puede_liberarse(tmp_path) -> None:
         assert entrega is not None
         assert entrega.procesando is False
         assert entrega.procesando_desde is None
+        assert entrega.reserva_id is None
+        assert entrega.reserva_expira_en is None
+
+
+def preparar_inicio_concurrente(tmp_path, cantidad: int):
+    ruta = (tmp_path / f"inicio-{cantidad}.db").as_posix()
+    engine = create_engine(
+        f"sqlite:///{ruta}",
+        connect_args={"check_same_thread": False, "timeout": 30},
+        pool_size=cantidad,
+        max_overflow=0,
+        future=True,
+    )
+    Base.metadata.create_all(engine)
+    sesiones = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    with sesiones.begin() as db:
+        alumno = UsuarioPermitido(
+            rol="alumno",
+            nombre="Inicio",
+            apellidos="Concurrente",
+            correo=f"inicio-{cantidad}@alu.uclm.es",
+        )
+        examen = Examen(
+            titulo="Inicio concurrente",
+            duracion_segundos=3600,
+            activo=True,
+            estado="publicado",
+            seleccion_json=json.dumps({"tipo_test": 2}),
+        )
+        db.add_all([alumno, examen])
+        db.flush()
+        for indice in range(4):
+            db.add(
+                Pregunta(
+                    examen_id=examen.id,
+                    clave=f"inicio-{cantidad}-{indice}",
+                    tipo="tipo_test",
+                    titulo=f"Pregunta {indice}",
+                    enunciado="Selecciona A.",
+                    opciones_json='["A", "B"]',
+                    respuesta_correcta="A",
+                    orden=indice + 1,
+                    peso=1.0,
+                    estado="publicada",
+                )
+            )
+        alumno_id = alumno.id
+        examen_id = examen.id
+    return sesiones, alumno_id, examen_id
+
+
+@pytest.mark.parametrize("cantidad", [2, 10, 20])
+def test_inicio_concurrente_crea_un_solo_intento_y_recupera_el_ganador(
+    tmp_path, cantidad: int
+) -> None:
+    sesiones, alumno_id, examen_id = preparar_inicio_concurrente(tmp_path, cantidad)
+    barrera = Barrier(cantidad)
+
+    def iniciar(indice: int) -> tuple[int, tuple[int, ...]]:
+        with sesiones() as db:
+            examen = get_examen_activo(db)
+            assert examen is not None
+            assert get_ultima_entrega(db, alumno_id, examen_id) is None
+            preguntas = seleccionar_preguntas(examen, random.Random(indice))
+            barrera.wait(timeout=30)
+            entrega = crear_entrega(
+                db,
+                alumno_id=alumno_id,
+                examen=examen,
+                hora_inicio=utc_now(),
+                consentimiento_version="c" * 64,
+                acepta_grabacion=True,
+                permisos_evidencia_verificados=True,
+                preguntas=preguntas,
+            )
+            return entrega.id, tuple(
+                asignacion.pregunta_id for asignacion in entrega.preguntas_asignadas
+            )
+
+    with ThreadPoolExecutor(max_workers=cantidad) as ejecutor:
+        resultados = list(ejecutor.map(iniciar, range(cantidad)))
+
+    assert len({entrega_id for entrega_id, _ in resultados}) == 1
+    assert len({preguntas for _, preguntas in resultados}) == 1
+    with sesiones() as db:
+        entregas = list(db.query(Entrega).all())
+        assert len(entregas) == 1

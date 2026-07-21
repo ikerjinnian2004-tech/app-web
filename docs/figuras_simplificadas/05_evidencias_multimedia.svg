@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<defs><marker id="flecha" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#475569"/></marker></defs>
+<text x="60" y="65" font-family="Arial" font-size="34" font-weight="700" fill="#172033">Flujo visible de evidencias multimedia</text>
+<line x1="230" y1="380" x2="270" y2="380" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="480" y1="380" x2="520" y2="380" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="710" y1="380" x2="750" y2="380" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="960" y1="380" x2="1000" y2="380" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1180" y1="380" x2="1220" y2="380" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1220" y1="380" x2="1080" y2="650" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<line x1="1080" y1="650" x2="1160" y2="650" stroke="#475569" stroke-width="3" marker-end="url(#flecha)"/>
+<rect x="40" y="330" width="190" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="135.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Consentimiento</text>
+<rect x="270" y="330" width="210" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="375.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Autorizacion previa</text>
+<rect x="520" y="330" width="190" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="615.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Flujos activos</text>
+<rect x="750" y="330" width="210" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="855.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Cambio de pestana</text>
+<rect x="1000" y="330" width="180" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1090.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Clip &lt;= 15 s</text>
+<rect x="1220" y="330" width="220" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1330.0" y="387.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">MIME, firma, bytes</text>
+<rect x="850" y="600" width="230" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="965.0" y="657.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Almacenamiento BLOB</text>
+<rect x="1160" y="600" width="240" height="100" rx="14" fill="#dbf5ee" stroke="#0f172a" stroke-width="2"/>
+<text x="1280.0" y="643.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">Revision docente</text>
+<text x="1280.0" y="671.0" text-anchor="middle" font-family="Arial" font-size="21" font-weight="600" fill="#172033">y log de acceso</text>
+<rect x="60" y="835" width="34" height="24" rx="5" fill="#dbf5ee" stroke="#0f172a"/>
+<text x="104" y="854" font-family="Arial" font-size="17" fill="#172033">Ejecutado</text>
+<rect x="320" y="835" width="34" height="24" rx="5" fill="#fff2cc" stroke="#0f172a"/>
+<text x="364" y="854" font-family="Arial" font-size="17" fill="#172033">Configurado</text>
+<rect x="580" y="835" width="34" height="24" rx="5" fill="#fee2e2" stroke="#0f172a"/>
+<text x="624" y="854" font-family="Arial" font-size="17" fill="#172033">No validado</text>
+<rect x="840" y="835" width="34" height="24" rx="5" fill="#e0e7ff" stroke="#0f172a"/>
+<text x="884" y="854" font-family="Arial" font-size="17" fill="#172033">Frontera</text>
+</svg>

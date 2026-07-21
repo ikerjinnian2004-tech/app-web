@@ -83,7 +83,7 @@ def main() -> int:
     bootstrap_python_path()
     bootstrap_local_environment()
 
-    from fastapi.testclient import TestClient
+    from starlette.testclient import TestClient
 
     from scripts.reset_db import main as reset_db
     from backend.data.seed_questions import main as seed_data
@@ -94,7 +94,7 @@ def main() -> int:
     from backend.main import app
 
     with TestClient(app) as client:
-        headers_alumno = acceder(client, "alumno", "ikerjinnian.blanco@alu.uclm.es")
+        headers_alumno = acceder(client, "alumno", "alumna.demo@alu.uclm.es")
         examen = iniciar_examen(client, headers_alumno)
         respuestas = [
             {"pregunta_id": pregunta["id"], "contenido": respuesta_correcta(pregunta)}
@@ -107,7 +107,7 @@ def main() -> int:
         )
         entrega.raise_for_status()
 
-        headers_profesor = acceder(client, "profesor", "david.munoz@uclm.es")
+        headers_profesor = acceder(client, "profesor", "docente.demo@uclm.es")
         panel = client.get("/profesor/entregas", headers=headers_profesor)
         panel.raise_for_status()
 

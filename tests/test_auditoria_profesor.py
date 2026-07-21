@@ -1,6 +1,8 @@
 from tests.conftest import acceder_alumno, acceder_profesor
 from tests.test_flujo_examen import iniciar_examen, respuestas_correctas
 
+WEBM_MINIMO = b"\x1a\x45\xdf\xa3webm-test"
+
 
 def crear_evento_con_evidencia(client, headers_alumno) -> int:
     response = client.post(
@@ -39,8 +41,9 @@ def test_auditoria_evidencia_y_panel_docente(client, examen_activo) -> None:
             "evento_id": str(evento.json()["evento_id"]),
             "tipo": "pantalla_camara_audio",
             "mime_type": "video/webm",
+            "duracion_ms": "1000",
         },
-        files={"archivo": ("evidencia.webm", b"webm-test", "video/webm")},
+        files={"archivo": ("nombre-controlado.webm", WEBM_MINIMO, "video/webm")},
     )
     assert subida.status_code == 200
 
@@ -62,11 +65,12 @@ def test_auditoria_evidencia_y_panel_docente(client, examen_activo) -> None:
         f"/profesor/evidencias/{evidencia_id}", headers=headers_profesor
     )
     assert evidencia.status_code == 200
-    assert evidencia.content == b"webm-test"
+    assert evidencia.content == WEBM_MINIMO
+    assert "nombre-controlado" not in evidencia.headers["content-disposition"]
 
     csv = client.get("/profesor/exportar", headers=headers_profesor)
     assert csv.status_code == 200
-    assert "ikerjinnian.blanco@alu.uclm.es" in csv.text
+    assert "alumna.demo@alu.uclm.es" in csv.text
 
 
 def test_panel_docente_rechaza_token_de_alumno(client, examen_activo) -> None:
@@ -85,26 +89,73 @@ def test_evidencia_rechaza_formato_vacio_y_exceso(
     formato = client.post(
         "/auditoria/evidencias",
         headers=headers,
-        data={"evento_id": evento_id, "tipo": "pantalla", "mime_type": "text/plain"},
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "text/plain",
+            "duracion_ms": 1000,
+        },
         files={"archivo": ("evidencia.txt", b"texto", "text/plain")},
     )
     vacio = client.post(
         "/auditoria/evidencias",
         headers=headers,
-        data={"evento_id": evento_id, "tipo": "pantalla", "mime_type": "video/webm"},
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 1000,
+        },
         files={"archivo": ("evidencia.webm", b"", "video/webm")},
     )
     monkeypatch.setattr("backend.routers.audit.settings.evidencia_max_bytes", 5)
     exceso = client.post(
         "/auditoria/evidencias",
         headers=headers,
-        data={"evento_id": evento_id, "tipo": "pantalla", "mime_type": "video/webm"},
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 1000,
+        },
         files={"archivo": ("evidencia.webm", b"123456", "video/webm")},
     )
 
     assert formato.status_code == 400
     assert vacio.status_code == 400
     assert exceso.status_code == 413
+
+
+def test_evidencia_valida_firma_y_duracion(client, examen_activo) -> None:
+    headers = acceder_alumno(client)
+    iniciar_examen(client, headers)
+    evento_id = crear_evento_con_evidencia(client, headers)
+
+    firma_falsa = client.post(
+        "/auditoria/evidencias",
+        headers=headers,
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 1000,
+        },
+        files={"archivo": ("falso.webm", b"texto", "video/webm")},
+    )
+    duracion_excesiva = client.post(
+        "/auditoria/evidencias",
+        headers=headers,
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 16_000,
+        },
+        files={"archivo": ("clip.webm", WEBM_MINIMO, "video/webm")},
+    )
+
+    assert firma_falsa.status_code == 400
+    assert duracion_excesiva.status_code == 400
 
 
 def test_evidencia_rechaza_evento_no_grabable_y_entrega_cerrada(
@@ -124,7 +175,12 @@ def test_evidencia_rechaza_evento_no_grabable_y_entrega_cerrada(
     response = client.post(
         "/auditoria/evidencias",
         headers=headers,
-        data={"evento_id": no_grabable, "tipo": "pantalla", "mime_type": "video/webm"},
+        data={
+            "evento_id": no_grabable,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 1000,
+        },
         files={"archivo": ("evidencia.webm", b"webm", "video/webm")},
     )
     assert response.status_code == 400
@@ -141,7 +197,12 @@ def test_evidencia_rechaza_evento_no_grabable_y_entrega_cerrada(
     cerrada = client.post(
         "/auditoria/evidencias",
         headers=headers,
-        data={"evento_id": evento_id, "tipo": "pantalla", "mime_type": "video/webm"},
+        data={
+            "evento_id": evento_id,
+            "tipo": "pantalla",
+            "mime_type": "video/webm",
+            "duracion_ms": 1000,
+        },
         files={"archivo": ("evidencia.webm", b"webm", "video/webm")},
     )
     assert cerrada.status_code == 403

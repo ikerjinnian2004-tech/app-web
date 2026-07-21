@@ -65,7 +65,7 @@ def test_exportacion_aplica_filtros_y_anade_trazabilidad(client, examen_activo) 
     csv = client.get(
         "/profesor/exportar",
         headers=headers,
-        params={"estado": "pendiente", "correo": "ikerjinnian"},
+        params={"estado": "pendiente", "correo": "alumna.demo"},
     )
     vacio = client.get(
         "/profesor/exportar",
@@ -76,8 +76,8 @@ def test_exportacion_aplica_filtros_y_anade_trazabilidad(client, examen_activo) 
     assert csv.status_code == 200
     assert "version_examen" in csv.text
     assert "todo_o_nada_por_pregunta" in csv.text
-    assert "ikerjinnian.blanco@alu.uclm.es" in csv.text
-    assert "ikerjinnian.blanco@alu.uclm.es" not in vacio.text
+    assert "alumna.demo@alu.uclm.es" in csv.text
+    assert "alumna.demo@alu.uclm.es" not in vacio.text
 
 
 def test_detalle_y_filtros_rechazan_acceso_o_valores_invalidos(
