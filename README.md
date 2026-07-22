@@ -10,7 +10,7 @@ las respuestas abiertas quedan pendientes de revisión docente.
 - Acceso por rol y lista institucional de usuarios autorizados.
 - Consentimiento y comprobación obligatoria de permisos de pantalla, cámara y
   micrófono antes de iniciar un intento de alumnado.
-- Banco versionado con preguntas de rellenar huecos, corregir código, tipo test y
+- Banco con preguntas de rellenar huecos, corregir código, tipo test y
   respuesta corta.
 - Selección aleatoria por tipo y congelación de pregunta, versión y peso en cada
   intento.
@@ -94,7 +94,7 @@ python -m http.server 5500
 Los datos se mantienen en `backend/data/datos_iniciales.json`. Los correos se
 normalizan sin distinguir mayúsculas y minúsculas.
 
-## Recorrido manual
+## Recorrido
 
 1. Abre la aplicación y accede como alumnado.
 2. Acepta el consentimiento y concede los tres permisos solicitados. Si se deniega
@@ -138,9 +138,7 @@ python scripts/verificar_tfg.py --navegador
 python scripts/verificar_tfg.py --seguridad
 ```
 
-Consulta `MANUAL_EVIDENCIAS_TFG.md` para instalar desde cero, reproducir las
-capturas con datos ficticios y distinguir qué demuestra cada evidencia. El
-modelo de amenazas y las limitaciones de privacidad se conservan en
+El modelo de amenazas y las limitaciones de privacidad se conservan en
 `docs/seguridad/`; las figuras editables y listas para Overleaf están en
 `docs/figuras_simplificadas/`.
 
@@ -173,19 +171,8 @@ Después configura `SANDBOX_USE_DOCKER=true`, confirma que el daemon está activ
 reinicia la API. No expongas el socket Docker dentro de un contenedor de aplicación
 sin una revisión específica de seguridad.
 
-## Estructura del repositorio
 
-```text
-backend/            API, modelos, migraciones, corrección y sandbox
-backend/data/       usuarios, examen, banco y consentimiento iniciales
-frontend/           interfaz web nativa
-scripts/            reinicio de base y simulación integral
-tests/              pruebas unitarias, de integración, seguridad y concurrencia
-verification/       modelo ejecutable de estados del envío atómico
-docs/                auditoría, seguridad y diagramas editables
-artifacts/           evidencias locales generadas e ignoradas por Git
-.github/workflows/  integración continua
-```
+
 
 ## Límites del prototipo
 
