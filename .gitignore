@@ -1,0 +1,66 @@
+# Entorno local
+.venv/
+.venv-*/
+venv/
+env/
+.env
+.env.local
+.env.production
+.agents/
+.codex/
+.black-cache-final/
+
+test_runtime.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.nox/
+.hypothesis/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Bases y logs locales
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.log
+logs/
+tmp/
+output/
+artifacts/
+EVIDENCIAS_MEMORIA_TFG/
+/EVIDENCIAS_MEMORIA_TFG.zip
+/Entregable TFG.pdf
+/Material de la memoria.zip
+/Pegado text.txt
+/*.zip
+/*.pdf
+
+# Build y dependencias externas
+dist/
+build/
+*.egg-info/
+node_modules/
+
+# Editor y sistema
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,20 @@
+# API y configuración
+fastapi==0.139.2
+uvicorn[standard]==0.40.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+
+# Persistencia
+sqlalchemy==2.0.44
+psycopg2-binary==2.9.11
+
+# Autenticación y validación
+PyJWT==2.13.0
+email-validator==2.3.0
+python-multipart==0.0.31
+
+# Sandbox Docker
+docker==7.1.0
+requests==2.34.2
+
